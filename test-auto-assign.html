@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Auto-Assign API</title>
+  <script type="module">
+    // 测试文本
+    const testText = `A (主持人): 你好，欢迎收听今天的节目。
+B (嘉宾): 谢谢邀请，很高兴来到这里。
+A (主持人): 今天我们要讨论一个很重要的话题。
+B (嘉宾): 没错，这个话题确实值得深入探讨。`;
+
+    // Gemini API配置
+    const GEMINI_API_KEY = 'AIzaSyCsYGl-Pzhs8SwGgtBsCrvHvXMzSc7BBlU';
+    const GEMINI_MODEL = 'gemini-2.5-flash-latest';
+    const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
+    async function testGeminiAPI() {
+      console.log('🧪 Testing Gemini API...');
+      console.log('Text:', testText);
+
+      const prompt = `你是一个对话分析专家。请分析以下对话文本，识别每个说话人的特征。
+
+对话文本：
+${testText}
+
+请为每个说话人提供：
+1. gender（性别）: male/female/neutral
+2. age（年龄段）: child/young_adult/adult/elderly
+3. personality_traits（性格特征）: 3-5个形容词
+4. voice_description（声音描述）: 50字左右的自然语言描述
+5. suggested_tags（推荐标签）: 5-8个标签，用于音色搜索
+
+以JSON格式返回，格式如下：
+{
+  "speakers": [
+    {
+      "speaker_name": "A (主持人)",
+      "gender": "male",
+      "age": "adult",
+      "personality_traits": ["professional", "warm"],
+      "voice_description": "A warm and professional male voice...",
+      "suggested_tags": ["professional", "warm", "narrator"]
+    }
+  ]
+}`;
+
+      try {
+        const response = await fetch(GEMINI_API_URL + '?key=' + GEMINI_API_KEY, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 2048,
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          console.error('❌ Gemini API failed:', error);
+          document.getElementById('result').innerHTML = `<pre style="color: red;">Gemini API Error:\n${error}</pre>`;
+          return;
+        }
+
+        const data = await response.json();
+        console.log('✅ Gemini Response:', data);
+
+        const text = data.candidates[0].content.parts[0].text;
+        console.log('📝 Raw text:', text);
+
+        // 提取JSON
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const result = JSON.parse(jsonMatch[0]);
+          console.log('✅ Parsed result:', result);
+          document.getElementById('result').innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+        } else {
+          console.error('❌ No JSON found in response');
+          document.getElementById('result').innerHTML = `<pre style="color: red;">No JSON in response:\n${text}</pre>`;
+        }
+      } catch (error) {
+        console.error('❌ Error:', error);
+        document.getElementById('result').innerHTML = `<pre style="color: red;">Error: ${error.message}</pre>`;
+      }
+    }
+
+    async function testNoizVoiceLibrary() {
+      console.log('🧪 Testing Noiz Voice Library API...');
+
+      const NOIZ_API_BASE = 'https://api.noiz.ai';
+      const NOIZ_API_KEY = 'ZTEwYTFjZWEtOTU3My00YjAzLTkyM2UtYWRlY2JiY2Y0MjZmJGpqbHltdDMzNUBnbWFpbC5jb20=';
+
+      try {
+        const response = await fetch(NOIZ_API_BASE + '/api/v1/voices/public?page=1&page_size=10', {
+          headers: {
+            'Authorization': `Bearer ${NOIZ_API_KEY}`,
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          console.error('❌ Noiz API failed:', error);
+          document.getElementById('voice-result').innerHTML = `<pre style="color: red;">Noiz API Error:\n${error}</pre>`;
+          return;
+        }
+
+        const data = await response.json();
+        console.log('✅ Noiz Voice Library Response:', data);
+        document.getElementById('voice-result').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+      } catch (error) {
+        console.error('❌ Error:', error);
+        document.getElementById('voice-result').innerHTML = `<pre style="color: red;">Error: ${error.message}</pre>`;
+      }
+    }
+
+    // 页面加载后自动测试
+    window.addEventListener('load', () => {
+      document.getElementById('test-gemini').addEventListener('click', testGeminiAPI);
+      document.getElementById('test-noiz').addEventListener('click', testNoizVoiceLibrary);
+    });
+  </script>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    pre {
+      background: #2a2a2a;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    h2 {
+      color: #4CAF50;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 Auto-Assign API 测试</h1>
+
+  <h2>1. 测试 Gemini API（角色分析）</h2>
+  <button id="test-gemini">测试 Gemini API</button>
+  <div id="result"></div>
+
+  <h2>2. 测试 Noiz Voice Library API</h2>
+  <button id="test-noiz">测试 Noiz API</button>
+  <div id="voice-result"></div>
+
+  <h2>测试文本：</h2>
+  <pre>A (主持人): 你好，欢迎收听今天的节目。
+B (嘉宾): 谢谢邀请，很高兴来到这里。
+A (主持人): 今天我们要讨论一个很重要的话题。
+B (嘉宾): 没错，这个话题确实值得深入探讨。</pre>
+</body>
+</html>

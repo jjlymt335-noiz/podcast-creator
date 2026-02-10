@@ -1,0 +1,48 @@
+请按照以下步骤初始化这个项目：
+
+1. 首先，请阅读项目上下文文档：
+   C:\Users\江嘉骝\podcast-creator\PROJECT_CONTEXT.md
+
+2. 这是一个 Podcast Creator（广播剧创作工具）项目，技术栈：
+   - React 18 + TypeScript + Vite
+   - Tailwind CSS + shadcn/ui
+   - Zustand 状态管理
+   - Axios API 调用
+
+3. 项目的关键功能：
+   - 文档上传与解析（PDF/EPUB/DOCX/TXT/HTML）
+   - Auto-assign voices（AI 自动识别说话人并匹配音色）
+   - 手动音色选择（Host/Guest）
+   - Voice Library 集成
+   - Voice Design 功能（文本描述生成音色）
+   - 文本编辑和 TTS 合成
+
+4. 最重要的文件：
+   - src/components/EntryPage/index.tsx - 入口页面（双模式：Auto-assign / Manual）
+   - src/components/EntryPage/VoiceSelector.tsx - Host/Guest 音色选择器
+   - src/components/EditorPage/VoicePanel.tsx - 说话人音色面板
+   - src/components/EditorPage/TextEditor.tsx - 文本编辑器（支持 Voice Design）
+   - src/components/VoiceLibrary/VoiceLibraryModal.tsx - 音色库弹窗
+   - src/components/VoiceLibrary/VoiceDesignModal.tsx - Voice Design 弹窗
+   - src/store/project-store.ts - 项目状态管理
+   - src/lib/api/ - 所有 API 封装
+
+5. 当前状态：
+   - ✅ 所有核心功能已实现
+   - ✅ Auto-assign 和 Manual 两种模式都已支持
+   - ✅ Voice Design 集成完成
+   - ⚠️ 部分 API 可能需要后端配合（特别是 Auto-assign API）
+
+6. 最近修复的 bug：
+   - 修复了 Auto-assign 模式不分配音色的问题
+   - 修复了 VoiceSelector 在切换 Auto-assign 时消失的问题
+
+请确认你已经理解了这个项目的上下文，然后我们可以继续开发或调试。
+
+---
+
+如果你需要了解更多细节，可以：
+- 读取 PROJECT_CONTEXT.md 获取完整项目概览
+- 读取具体的源代码文件了解实现细节
+- 查看 package.json 了解依赖关系
+- 检查 .env.example 了解所需的环境变量
