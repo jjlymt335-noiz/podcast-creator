@@ -1,7 +1,7 @@
 import { internalClient } from './client';
 
 // Smart Emotion API封装
-// POST /api/v1/emotion-enhance（通过 Vite Proxy 转发，cookie 认证）
+// POST /api/v2/emotion-enhance（通过 Vite Proxy 转发，cookie 认证）
 
 /**
  * 简易语言检测
@@ -25,7 +25,7 @@ function detectLanguage(text: string): string {
 export async function enhanceEmotion(text: string, language?: string): Promise<string> {
   const lang = language || detectLanguage(text);
   const response = await internalClient.post<{ emotion_enhance: string }>(
-    '/api/v1/emotion-enhance',
+    '/api/v2/emotion-enhance',
     { text, language: lang }
   );
   return (response as any).emotion_enhance;

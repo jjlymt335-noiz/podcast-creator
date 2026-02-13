@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { DocumentUpload } from './DocumentUpload';
+import { UrlImport } from './UrlImport';
 import { ProjectSelector } from './ProjectSelector';
 import { AutoAssignToggle } from './AutoAssignToggle';
 import { VoiceSelector } from './VoiceSelector';
 import { useProjectStore, useUIStore } from '@/store';
-import { Loader2, Mic2, ArrowRight } from 'lucide-react';
+import { Loader2, Mic2, ArrowRight, PenLine } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import type { DocumentParseResult } from '@/types/project';
 
 export function EntryPage() {
@@ -15,6 +17,7 @@ export function EntryPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [uploadedDoc, setUploadedDoc] = useState<DocumentParseResult | null>(null);
   const [podcastName, setPodcastName] = useState('');
+  const [manualText, setManualText] = useState('');
   const [hostVoice, setHostVoice] = useState<{ voiceId: string; voiceName: string } | null>(null);
   const [guestVoice, setGuestVoice] = useState<{ voiceId: string; voiceName: string } | null>(null);
 
@@ -56,9 +59,11 @@ export function EntryPage() {
 
       if (!currentProject) {
         console.log('⚠️ No current project found, creating one...');
+        const sourceText = uploadedDoc?.text || manualText || '';
+        const lang = uploadedDoc?.language || (/[\u4e00-\u9fff]/.test(sourceText) ? 'zh' : 'en');
         createProject({
-          text: '',
-          language: 'en',
+          text: sourceText,
+          language: lang,
           format: 'txt',
           title: podcastName || 'Untitled Podcast',
         });
@@ -202,6 +207,9 @@ export function EntryPage() {
               <TabsTrigger value="upload" className="flex-1 text-base data-[state=active]:text-orange-600">
                 Upload Document
               </TabsTrigger>
+              <TabsTrigger value="url" className="flex-1 text-base data-[state=active]:text-orange-600">
+                Import URL
+              </TabsTrigger>
               <TabsTrigger value="existing" className="flex-1 text-base data-[state=active]:text-orange-600">
                 Existing Project
               </TabsTrigger>
@@ -209,6 +217,10 @@ export function EntryPage() {
 
             <TabsContent value="upload">
               <DocumentUpload onUploadComplete={handleUploadComplete} />
+            </TabsContent>
+
+            <TabsContent value="url">
+              <UrlImport onImportComplete={handleUploadComplete} />
             </TabsContent>
 
             <TabsContent value="existing">
@@ -263,31 +275,46 @@ export function EntryPage() {
             />
           )}
 
-          {/* Generate Button */}
+          {/* Action Buttons */}
           <div className="flex flex-col items-center gap-3 pt-6">
-            <Button
-              size="lg"
-              onClick={handleGenerate}
-              disabled={isGenerating || !canGenerate}
-              className="px-12 h-14 text-lg font-semibold bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-200 hover:shadow-lg hover:shadow-orange-200 transition-all"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Processing...
-                </>
-              ) : uploadedDoc || currentProject ? (
-                <>
-                  Generate Podcast
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </>
-              ) : (
-                <>
-                  Start Writing
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-4">
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => {
+                  createProject({
+                    text: '',
+                    language: 'zh',
+                    format: 'txt',
+                    title: podcastName || 'Untitled Podcast',
+                  });
+                  setCurrentPage('editor');
+                }}
+                className="h-14 px-8 text-lg font-semibold border-2 border-orange-300 text-orange-600 hover:bg-orange-50 hover:border-orange-400 transition-all"
+              >
+                <PenLine className="mr-2 h-5 w-5" />
+                Start Writing
+              </Button>
+
+              <Button
+                size="lg"
+                onClick={handleGenerate}
+                disabled={isGenerating || !canGenerate}
+                className="h-14 px-8 text-lg font-semibold bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-200 hover:shadow-lg hover:shadow-orange-200 transition-all"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Generate Podcast
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </>
+                )}
+              </Button>
+            </div>
 
             {needsVoice && (!hostVoice || !guestVoice) && (
               <p className="text-center text-base text-orange-600">
@@ -295,11 +322,6 @@ export function EntryPage() {
               </p>
             )}
 
-            {!uploadedDoc && !currentProject && (
-              <p className="text-center text-base text-gray-400">
-                No document? Click above to start writing from scratch
-              </p>
-            )}
           </div>
         </div>
       </div>

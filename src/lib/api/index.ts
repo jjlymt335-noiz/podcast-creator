@@ -5,3 +5,4 @@ export * from './voice-library';
 export * from './voice-design';
 export * from './auto-assign';
 export * from './emotion';
+export * from './audio-x';

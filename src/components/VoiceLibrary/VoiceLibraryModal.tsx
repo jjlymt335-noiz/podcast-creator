@@ -53,13 +53,13 @@ export function VoiceLibraryModal({
         });
       } else if (tab === 'my') {
         result = await api.getMyVoices({
-          page: 1,
-          page_size: 50,
+          skip: 0,
+          limit: 50,
         });
       } else if (tab === 'favorited') {
         result = await api.getFavoritedVoices({
-          page: 1,
-          page_size: 50,
+          skip: 0,
+          limit: 50,
         });
       } else {
         result = { voices: [] };

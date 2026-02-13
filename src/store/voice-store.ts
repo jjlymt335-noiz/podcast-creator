@@ -76,8 +76,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     set({ isLoading: true });
     try {
       const response = await api.getPublicVoices({
-        page,
-        page_size: 20,
+        skip: (page - 1) * 20,
+        limit: 20,
       });
       set({ publicVoices: response.voices });
     } catch (error) {

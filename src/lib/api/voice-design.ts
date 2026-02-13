@@ -2,12 +2,12 @@ import { internalClient } from './client';
 import type { VoiceDesignResponse, CreateVoiceRequest } from '@/types/api';
 
 // Voice Design API封装（通过 Vite Proxy 转发，cookie 认证）
-// POST /api/v1/voice-design
-// POST /api/v1/voices  (保存音色)
+// POST /api/v2/voice-design
+// POST /api/v2/voices  (保存音色)
 
 /**
  * 生成AI音色（返回最多3个预览）
- * POST /api/v1/voice-design  (Form-Data)
+ * POST /api/v2/voice-design  (Form-Data)
  */
 export async function generateVoiceDesign(params: {
   voice_description?: string;
@@ -33,7 +33,7 @@ export async function generateVoiceDesign(params: {
     formData.append('loudness', params.loudness.toString());
   }
 
-  const response = await internalClient.post<VoiceDesignResponse>('/api/v1/voice-design', formData, {
+  const response = await internalClient.post<VoiceDesignResponse>('/api/v2/voice-design', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
@@ -42,7 +42,7 @@ export async function generateVoiceDesign(params: {
 
 /**
  * 保存Voice Design生成的音色到音色库
- * POST /api/v1/voices  (Form-Data, creation_mode=voice_design)
+ * POST /api/v2/voices  (Form-Data, creation_mode=voice_design)
  *
  * 复用 Voice Clone 的创建接口，通过 creation_mode 区分
  */
@@ -74,7 +74,7 @@ export async function saveVoiceDesign(params: {
     formData.append('language_type', params.language_type);
   }
 
-  const response = await internalClient.post('/api/v1/voices', formData, {
+  const response = await internalClient.post('/api/v2/voices', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 

@@ -27,6 +27,14 @@ interface ProjectState {
   addEmotionTag: (segmentId: string, position: number, emotionValue: string) => void;
   splitSegmentWithPause: (segmentId: string, position: number, pauseDuration: number) => void;
   deleteSegments: (segmentIds: string[]) => void;
+  reorderSegments: (fromIndex: number, toIndex: number) => void;
+
+  // SFX 音效管理
+  sfxAudioBlobs: Record<string, Blob>;
+  insertSfxSegment: (afterSegmentId: string | null, text?: string, duration?: number) => void;
+  removeSfxSegment: (segmentId: string) => void;
+  updateSfxSegment: (segmentId: string, updates: { text?: string; sfx_duration?: number }) => void;
+  generateSfxAudio: (segmentId: string) => Promise<Blob>;
 
   // Auto-assign
   autoAssignVoices: (userId: string) => Promise<void>;
@@ -46,6 +54,106 @@ export const useProjectStore = create<ProjectState>()(
   persist(
     (set, get) => ({
       currentProject: null,
+      sfxAudioBlobs: {} as Record<string, Blob>,
+
+      // ── SFX 音效管理 ──────────────────────────────────────────
+
+      insertSfxSegment: (afterSegmentId: string | null, text?: string, duration?: number) => {
+        const { currentProject } = get();
+        if (!currentProject) return;
+
+        const newSegment: ProjectSegment = {
+          id: `sfx_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          type: 'sfx',
+          speaker_id: '__sfx__',
+          text: text || '',
+          voice_id: null,
+          start_index: -1,
+          end_index: -1,
+          sfx_duration: duration || 5,
+        };
+
+        let updatedSegments: ProjectSegment[];
+        if (afterSegmentId === null) {
+          updatedSegments = [newSegment, ...currentProject.segments];
+        } else {
+          const index = currentProject.segments.findIndex((s) => s.id === afterSegmentId);
+          if (index === -1) return;
+          updatedSegments = [
+            ...currentProject.segments.slice(0, index + 1),
+            newSegment,
+            ...currentProject.segments.slice(index + 1),
+          ];
+        }
+
+        set({
+          currentProject: {
+            ...currentProject,
+            segments: updatedSegments,
+            updated_at: Date.now(),
+          },
+        });
+      },
+
+      removeSfxSegment: (segmentId: string) => {
+        const { currentProject, sfxAudioBlobs } = get();
+        if (!currentProject) return;
+
+        const segment = currentProject.segments.find((s) => s.id === segmentId);
+        if (!segment || (segment.type || 'speech') !== 'sfx') return;
+
+        const updatedBlobs = { ...sfxAudioBlobs };
+        delete updatedBlobs[segmentId];
+
+        set({
+          currentProject: {
+            ...currentProject,
+            segments: currentProject.segments.filter((s) => s.id !== segmentId),
+            updated_at: Date.now(),
+          },
+          sfxAudioBlobs: updatedBlobs,
+        });
+      },
+
+      updateSfxSegment: (segmentId: string, updates: { text?: string; sfx_duration?: number }) => {
+        const { currentProject } = get();
+        if (!currentProject) return;
+
+        set({
+          currentProject: {
+            ...currentProject,
+            segments: currentProject.segments.map((s) =>
+              s.id === segmentId ? { ...s, ...updates } : s
+            ),
+            updated_at: Date.now(),
+          },
+        });
+      },
+
+      generateSfxAudio: async (segmentId: string) => {
+        const { currentProject } = get();
+        if (!currentProject) throw new Error('No project');
+
+        const segment = currentProject.segments.find((s) => s.id === segmentId);
+        if (!segment || (segment.type || 'speech') !== 'sfx') throw new Error('Not an SFX segment');
+        if (!segment.text.trim()) throw new Error('SFX description is empty');
+
+        const audioBlob = await api.generateSoundEffect({
+          text: segment.text,
+          duration: segment.sfx_duration || 5,
+        });
+
+        set({
+          sfxAudioBlobs: {
+            ...get().sfxAudioBlobs,
+            [segmentId]: audioBlob,
+          },
+        });
+
+        return audioBlob;
+      },
+
+      // ── 项目 CRUD ─────────────────────────────────────────────
 
       createProject: (doc: DocumentParseResult) => {
         const projectId = `project_${Date.now()}`;
@@ -386,6 +494,24 @@ export const useProjectStore = create<ProjectState>()(
         });
       },
 
+      reorderSegments: (fromIndex: number, toIndex: number) => {
+        const { currentProject } = get();
+        if (!currentProject) return;
+        if (fromIndex === toIndex) return;
+
+        const segments = [...currentProject.segments];
+        const [moved] = segments.splice(fromIndex, 1);
+        segments.splice(toIndex, 0, moved);
+
+        set({
+          currentProject: {
+            ...currentProject,
+            segments,
+            updated_at: Date.now(),
+          },
+        });
+      },
+
       autoAssignVoices: async (userId: string) => {
         const { currentProject } = get();
         if (!currentProject) return;
@@ -457,33 +583,57 @@ export const useProjectStore = create<ProjectState>()(
         });
 
         try {
-          // 按顺序排序segments
-          const sortedSegments = [...currentProject.segments].sort(
-            (a, b) => a.start_index - b.start_index
-          );
+          // 使用数组顺序（用户插入顺序），不按 start_index 排序
+          // 因为 SFX segment 的 start_index 为 -1
+          const orderedSegments = [...currentProject.segments];
 
-          // 检查所有segments是否都有voice_id
-          const missingVoice = sortedSegments.find((seg) => !seg.voice_id);
+          // 检查所有 speech segments 是否都有 voice_id
+          const missingVoice = orderedSegments.find(
+            (seg) => (seg.type || 'speech') !== 'sfx' && !seg.voice_id
+          );
           if (missingVoice) {
-            throw new Error('Please assign voices to all segments');
+            throw new Error('Please assign voices to all speech segments');
           }
 
           // 为每个segment生成音频
           const audioBlobs: Blob[] = [];
-          for (let i = 0; i < sortedSegments.length; i++) {
-            const segment = sortedSegments[i];
+          const { sfxAudioBlobs } = get();
 
-            // 调用TTS API
-            const audioBlob = await api.textToSpeech({
-              text: segment.text,
-              voice_id: segment.voice_id!,
-              output_format: 'mp3',
-            });
+          for (let i = 0; i < orderedSegments.length; i++) {
+            const segment = orderedSegments[i];
+            const segType = segment.type || 'speech';
+
+            let audioBlob: Blob;
+
+            if (segType === 'sfx') {
+              // SFX: 优先使用缓存，否则调用 AudioX 生成
+              if (sfxAudioBlobs[segment.id]) {
+                audioBlob = sfxAudioBlobs[segment.id];
+              } else if (segment.text.trim()) {
+                audioBlob = await api.generateSoundEffect({
+                  text: segment.text,
+                  duration: segment.sfx_duration || 5,
+                });
+                set({
+                  sfxAudioBlobs: { ...get().sfxAudioBlobs, [segment.id]: audioBlob },
+                });
+              } else {
+                // 空描述的 SFX 跳过
+                continue;
+              }
+            } else {
+              // Speech: 调用 Noiz TTS API
+              audioBlob = await api.textToSpeech({
+                text: segment.text,
+                voice_id: segment.voice_id!,
+                output_format: 'mp3',
+              });
+            }
 
             audioBlobs.push(audioBlob);
 
             // 更新进度
-            const progress = ((i + 1) / sortedSegments.length) * 100;
+            const progress = ((i + 1) / orderedSegments.length) * 100;
             set({
               currentProject: {
                 ...get().currentProject!,
@@ -498,7 +648,7 @@ export const useProjectStore = create<ProjectState>()(
             id: `gen_${Date.now()}`,
             timestamp: Date.now(),
             status: 'completed' as const,
-            segment_count: sortedSegments.length,
+            segment_count: orderedSegments.length,
             title: proj.title,
           };
           set({
@@ -586,6 +736,7 @@ export const useProjectStore = create<ProjectState>()(
     }),
     {
       name: 'podcast-project',
+      // sfxAudioBlobs 不持久化（Blob 不可序列化）
       partialize: (state) => ({ currentProject: state.currentProject }),
     }
   )

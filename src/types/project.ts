@@ -1,18 +1,18 @@
-import type { Speaker, SegmentInfo } from './api';
-
 // 项目相关类型
 
 export interface ProjectSegment {
   id: string;
-  speaker_id: string;
-  text: string;
-  voice_id: string | null;
+  type?: 'speech' | 'sfx'; // 段落类型，默认 'speech'（向后兼容旧数据）
+  speaker_id: string; // SFX 时用 '__sfx__' 哨兵值
+  text: string; // SFX 时为音效描述文字
+  voice_id: string | null; // SFX 时为 null
   start_index: number;
   end_index: number;
   audio_url?: string;
   duration?: number;
   pause_before?: number; // 暂停时长（秒），用于在此segment前添加静音
   speaker_gap?: number; // 说话人切换间隔（秒），默认0.6s
+  sfx_duration?: number; // SFX 生成时长（秒），默认5s
 }
 
 export interface ProjectSpeaker {

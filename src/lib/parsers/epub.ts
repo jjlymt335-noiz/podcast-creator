@@ -27,10 +27,10 @@ export async function parseEPUB(file: File): Promise<DocumentParseResult> {
 
     // 提取所有章节的文本
     let fullText = '';
-    for (const item of spine.items) {
+    for (const item of (spine as any).items) {
       try {
         const doc = await book.load(item.href);
-        const text = extractTextFromHTML(doc);
+        const text = extractTextFromHTML(doc as unknown as Document);
         fullText += text + '\n\n';
       } catch (error) {
         console.warn(`Failed to load chapter ${item.href}:`, error);

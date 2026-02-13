@@ -33,12 +33,12 @@ function toFormData(params: Record<string, any>): FormData {
 
 // ============================================================
 // 1.1 短文本 TTS（≤150字符）
-// POST /v1/text-to-speech  (Form-Data → audio binary)
+// POST /v2/text-to-speech  (Form-Data → audio binary)
 // 开发者 API，API Key 认证
 // ============================================================
 export async function textToSpeech(params: TTSRequest): Promise<Blob> {
   const fd = toFormData(params);
-  const response = await apiClient.post<Blob>('/v1/text-to-speech', fd, {
+  const response = await apiClient.post<Blob>('/v2/text-to-speech', fd, {
     responseType: 'blob',
     headers: { 'Content-Type': 'multipart/form-data' },
   });
@@ -47,12 +47,12 @@ export async function textToSpeech(params: TTSRequest): Promise<Blob> {
 
 // ============================================================
 // 1.2 长文本 TTS（≤1000字符）
-// POST /api/v1/text-to-speech-long  (Form-Data → audio binary)
+// POST /api/v2/text-to-speech-long  (Form-Data → audio binary)
 // 内部 API，cookie 认证（通过 Vite Proxy）
 // ============================================================
 export async function textToSpeechLong(params: TTSLongRequest): Promise<Blob> {
   const fd = toFormData(params);
-  const response = await internalClient.post<Blob>('/api/v1/text-to-speech-long', fd, {
+  const response = await internalClient.post<Blob>('/api/v2/text-to-speech-long', fd, {
     responseType: 'blob',
     headers: { 'Content-Type': 'multipart/form-data' },
   });
@@ -61,12 +61,12 @@ export async function textToSpeechLong(params: TTSLongRequest): Promise<Blob> {
 
 // ============================================================
 // 1.3 批量 TTS（多候选，≤150字符）
-// POST /api/v1/text-to-speech-batch  (Form-Data → JSON)
+// POST /api/v2/text-to-speech-batch  (Form-Data → JSON)
 // 内部 API，cookie 认证（通过 Vite Proxy）
 // ============================================================
 export async function textToSpeechBatch(params: TTSBatchRequest): Promise<TTSBatchCandidate[]> {
   const fd = toFormData(params);
-  const response = await internalClient.post<TTSBatchCandidate[]>('/api/v1/text-to-speech-batch', fd, {
+  const response = await internalClient.post<TTSBatchCandidate[]>('/api/v2/text-to-speech-batch', fd, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return response as unknown as TTSBatchCandidate[];
@@ -198,13 +198,13 @@ export async function concatAllSections(genProductId: string): Promise<void> {
 
 // ============================================================
 // 1.12 获取 TTS 历史记录
-// GET /api/v1/text-to-speech-history?skip=0&limit=10
+// GET /api/v2/text-to-speech-history?skip=0&limit=10
 // ============================================================
 export async function getTTSHistory(params?: {
   skip?: number;
   limit?: number;
 }): Promise<TTSHistoryResponse> {
-  const response = await internalClient.get<TTSHistoryResponse>('/api/v1/text-to-speech-history', {
+  const response = await internalClient.get<TTSHistoryResponse>('/api/v2/text-to-speech-history', {
     params: {
       skip: params?.skip ?? 0,
       limit: params?.limit ?? 10,
@@ -215,33 +215,33 @@ export async function getTTSHistory(params?: {
 
 // ============================================================
 // 1.13 删除 TTS 历史记录
-// DELETE /api/v1/text-to-speech/{gen_product_id}
+// DELETE /api/v2/text-to-speech/{gen_product_id}
 // ============================================================
 export async function deleteTTSHistory(genProductId: string): Promise<{ gen_product_id: string }> {
-  const response = await internalClient.delete(`/api/v1/text-to-speech/${genProductId}`);
+  const response = await internalClient.delete(`/api/v2/text-to-speech/${genProductId}`);
   return response as any;
 }
 
 // ============================================================
 // 1.14 记录下载历史
-// POST /api/v1/text-to-speech/download  (JSON body)
+// POST /api/v2/text-to-speech/download  (JSON body)
 // ============================================================
 export async function recordDownload(genProductId: string): Promise<void> {
-  await internalClient.post('/api/v1/text-to-speech/download', {
+  await internalClient.post('/api/v2/text-to-speech/download', {
     gen_product_id: genProductId,
   });
 }
 
 // ============================================================
 // 1.15 点赞/取消点赞
-// PUT /api/v1/text-to-speech/{gen_product_id}/like  (JSON body)
+// PUT /api/v2/text-to-speech/{gen_product_id}/like  (JSON body)
 // ============================================================
 export async function likeTTS(
   genProductId: string,
   type: 0 | 1,
   tags?: string[]
 ): Promise<void> {
-  await internalClient.put(`/api/v1/text-to-speech/${genProductId}/like`, {
+  await internalClient.put(`/api/v2/text-to-speech/${genProductId}/like`, {
     type,
     tags,
   });
@@ -249,7 +249,7 @@ export async function likeTTS(
 
 // ============================================================
 // 1.16 情绪增强
-// POST /api/v1/emotion-enhance（通过 Vite Proxy，cookie 认证）
+// POST /api/v2/emotion-enhance（通过 Vite Proxy，cookie 认证）
 // ============================================================
 export async function emotionEnhance(text: string, language?: string): Promise<string> {
   const { enhanceEmotion } = await import('./emotion');

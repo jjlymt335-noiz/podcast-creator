@@ -1,7 +1,7 @@
 import axios, { type AxiosResponse, type AxiosError } from 'axios';
 
 // API配置
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 export const API_KEY = import.meta.env.VITE_API_KEY || '';
 export const API_TIMEOUT = 30000; // 30秒
 
@@ -62,7 +62,7 @@ function handleError(error: AxiosError) {
 }
 
 // ====== apiClient: 开发者 API（API Key 认证，直连 noiz.ai）======
-// 用于 /v1/text-to-speech 等公开接口
+// 用于 /v2/text-to-speech 等公开接口
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: API_TIMEOUT,
@@ -84,7 +84,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(handleResponse, handleError);
 
 // ====== internalClient: 内部 API（Vite Proxy + cookie 认证）======
-// 用于 /api/v1/ 端点（emotion-enhance, voice-design 等）
+// 用于 /api/v2/ 端点（emotion-enhance, voice-design 等）
 // 请求发到本地 Vite dev server，由 proxy 转发到 noiz.ai 并注入 cookie
 export const internalClient = axios.create({
   timeout: 180000, // 3分钟（voice-design 生成较慢）

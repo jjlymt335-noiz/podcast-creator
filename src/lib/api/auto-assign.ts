@@ -101,7 +101,7 @@ function parseDialogueFormat(
         display_name: idx === 0 ? 'Emma' : `Voice ${idx + 1}`,
         match_score: 0.85 - idx * 0.05,
         match_reason: 'Mock matched based on character traits',
-        source: idx % 2 === 0 ? 'public_library' : 'user_library',
+        source: (idx % 2 === 0 ? 'public_library' : 'user_library') as 'public_library' | 'user_library',
         tags: ['warm', 'friendly', language],
         language,
         gender: idx % 2 === 0 ? 'female' : 'male',
@@ -153,7 +153,7 @@ function parseByParagraphs(text: string, language: string): AutoAssignVoicesResp
         display_name: i === 0 ? 'Emma' : `Voice ${i + 1}`,
         match_score: 0.85 - i * 0.05,
         match_reason: 'Mock matched based on character traits',
-        source: i % 2 === 0 ? 'public_library' : 'user_library',
+        source: (i % 2 === 0 ? 'public_library' : 'user_library') as 'public_library' | 'user_library',
         tags: ['warm', 'friendly', language],
         language,
         gender: i % 2 === 0 ? 'female' : 'male',
@@ -628,7 +628,7 @@ export async function checkAutoAssignAvailability(): Promise<boolean> {
   }
 
   try {
-    await apiClient.get('/api/v1/podcast/health');
+    await apiClient.get('/api/v2/podcast/health');
     return true;
   } catch {
     return false;
