@@ -577,12 +577,17 @@ export function TextEditor() {
                   {/* ===== 过渡区域 ===== */}
                   {hasPrevSpeech && (
                     <div className="py-2 pl-5">
-                      <div className="border-t border-dashed border-gray-200 mb-2.5" />
+                      <div className="border-t border-dashed border-gray-200 mb-2" />
+                      {/* 引导文案 */}
+                      <div className="flex items-center gap-2 mb-2 text-[10px] text-gray-400 tracking-wide uppercase">
+                        <span>Transition</span>
+                        <span className="flex-1 border-t border-dotted border-gray-200" />
+                        <span className="normal-case tracking-normal">top plays first</span>
+                      </div>
                       <div className="flex flex-col gap-2 max-w-2xl">
                         {zoneItems.map((itemId, zoneIdx) => {
-                          const showArrows = true;
-                          const canMoveUp = zoneIdx > 0;
-                          const canMoveDown = zoneIdx < zoneItems.length - 1;
+                          const isFirst = zoneIdx === 0;
+                          const isLast = zoneIdx === zoneItems.length - 1;
 
                           if (itemId === 'gap') {
                             return (
@@ -636,25 +641,32 @@ export function TextEditor() {
                                     </div>
                                   </PopoverContent>
                                 </Popover>
-                                {showArrows && (
-                                  <div className="flex flex-col">
-                                    <button
-                                      onClick={() => moveZoneItem(segment.id, 'gap', 'up')}
-                                      disabled={!canMoveUp}
-                                      className="p-0 leading-none transition-colors text-gray-400 hover:text-orange-500"
-                                      title="Move up"
-                                    >
-                                      <ChevronUp className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button
-                                      onClick={() => moveZoneItem(segment.id, 'gap', 'down')}
-                                      disabled={!canMoveDown}
-                                      className="p-0 leading-none transition-colors text-gray-400 hover:text-orange-500"
-                                      title="Move down"
-                                    >
-                                      <ChevronDown className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
+                                {isFirst && !isLast && (
+                                  <button
+                                    onClick={() => moveZoneItem(segment.id, 'gap', 'down')}
+                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
+                                    title="Move down"
+                                  >
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                {isLast && !isFirst && (
+                                  <button
+                                    onClick={() => moveZoneItem(segment.id, 'gap', 'up')}
+                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
+                                    title="Move up"
+                                  >
+                                    <ChevronUp className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                {isFirst && isLast && (
+                                  <button
+                                    onClick={() => moveZoneItem(segment.id, 'gap', 'down')}
+                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
+                                    title="Move down"
+                                  >
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                  </button>
                                 )}
                               </div>
                             );
@@ -707,26 +719,35 @@ export function TextEditor() {
                                   />
                                 </div>
                               </div>
-                              {showArrows && (
-                                <div className="flex flex-col pt-3">
-                                  <button
-                                    onClick={() => moveZoneItem(segment.id, itemId, 'up')}
-                                    disabled={!canMoveUp}
-                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
-                                    title="Move up"
-                                  >
-                                    <ChevronUp className="h-4 w-4" />
-                                  </button>
+                              <div className="flex flex-col items-center justify-center pt-5">
+                                {isFirst && !isLast && (
                                   <button
                                     onClick={() => moveZoneItem(segment.id, itemId, 'down')}
-                                    disabled={!canMoveDown}
                                     className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
                                     title="Move down"
                                   >
                                     <ChevronDown className="h-4 w-4" />
                                   </button>
-                                </div>
-                              )}
+                                )}
+                                {isLast && !isFirst && (
+                                  <button
+                                    onClick={() => moveZoneItem(segment.id, itemId, 'up')}
+                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
+                                    title="Move up"
+                                  >
+                                    <ChevronUp className="h-4 w-4" />
+                                  </button>
+                                )}
+                                {isFirst && isLast && (
+                                  <button
+                                    onClick={() => moveZoneItem(segment.id, itemId, 'down')}
+                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
+                                    title="Move down"
+                                  >
+                                    <ChevronDown className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           );
                         })}
@@ -738,14 +759,14 @@ export function TextEditor() {
                               insertSfxSegment(prevId);
                             }}
                             className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-full border border-dashed border-amber-300 bg-white text-amber-500 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all"
-                            title="Insert sound effect"
+                            title="Insert sound effect between segments"
                           >
                             <Music className="h-3 w-3" />
-                            <span>Add SFX</span>
+                            <span>Add Sound Effect</span>
                           </button>
                         </div>
                       </div>
-                      <div className="border-t border-dashed border-gray-200 mt-2.5" />
+                      <div className="border-t border-dashed border-gray-200 mt-2" />
                     </div>
                   )}
 
