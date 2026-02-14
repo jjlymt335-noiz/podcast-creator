@@ -15,7 +15,6 @@ import {
   Music,
   Volume2,
   GripVertical,
-  ArrowUpDown,
 } from 'lucide-react';
 import { useProjectStore, useUIStore } from '@/store';
 import * as api from '@/lib/api';
@@ -70,6 +69,7 @@ export function TextEditor() {
   const generateSfxAudio = useProjectStore((state) => state.generateSfxAudio);
   const sfxAudioBlobs = useProjectStore((state) => state.sfxAudioBlobs);
   const reorderSegments = useProjectStore((state) => state.reorderSegments);
+  const reorderZoneSfx = useProjectStore((state) => state.reorderZoneSfx);
   const isSelectionMode = useUIStore((state) => state.isSelectionMode);
   const checkedSegmentIds = useUIStore((state) => state.checkedSegmentIds);
   const toggleSegmentChecked = useUIStore((state) => state.toggleSegmentChecked);
@@ -89,8 +89,13 @@ export function TextEditor() {
   const [focusSegmentId, setFocusSegmentId] = useState<string | null>(null);
   const [dragFromIndex, setDragFromIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  // gap 排序：记录哪些 speech segment 的 gap 应在 SFX 之后播放
-  const [gapAfterSfx, setGapAfterSfx] = useState<Record<string, boolean>>({});
+  // Zone ordering: tracks item order (gap + SFX) within transition zones between speeches
+  const [zoneOrders, setZoneOrders] = useState<Record<string, string[]>>({});
+  const [zoneDragState, setZoneDragState] = useState<{
+    zoneId: string;
+    dragItemId: string;
+    overItemId: string | null;
+  } | null>(null);
   const [newLineSegmentId, setNewLineSegmentId] = useState<string | null>(null);
 
   // Auto-initialize: when segments are empty, create a default speaker + first segment
@@ -499,6 +504,76 @@ export function TextEditor() {
     setDragOverIndex(null);
   };
 
+  // ── Zone drag & drop (transition zone items: gap + SFX) ──
+
+  const getZoneItems = (speechId: string, sfxSegments: { id: string }[]): string[] => {
+    const sfxIds = sfxSegments.map(s => s.id);
+    const stored = zoneOrders[speechId];
+    if (stored) {
+      const currentIds = new Set(sfxIds);
+      const valid = stored.filter(id => id === 'gap' || currentIds.has(id));
+      const inValid = new Set(valid);
+      for (const id of sfxIds) {
+        if (!inValid.has(id)) valid.push(id);
+      }
+      if (!inValid.has('gap')) valid.unshift('gap');
+      return valid;
+    }
+    return ['gap', ...sfxIds];
+  };
+
+  const handleZoneDragStart = (e: React.DragEvent, zoneId: string, itemId: string) => {
+    e.stopPropagation();
+    setZoneDragState({ zoneId, dragItemId: itemId, overItemId: null });
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/zone-item', itemId);
+  };
+
+  const handleZoneDragOver = (e: React.DragEvent, zoneId: string, itemId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (zoneDragState?.zoneId === zoneId && zoneDragState.dragItemId !== itemId) {
+      setZoneDragState(prev => prev ? { ...prev, overItemId: itemId } : null);
+    }
+  };
+
+  const handleZoneDrop = (e: React.DragEvent, zoneId: string, targetItemId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!zoneDragState || zoneDragState.zoneId !== zoneId) return;
+    const { dragItemId } = zoneDragState;
+    if (dragItemId === targetItemId) { setZoneDragState(null); return; }
+
+    const speechIdx = currentProject!.segments.findIndex(s => s.id === zoneId);
+    if (speechIdx === -1) { setZoneDragState(null); return; }
+    const sfxSegs: { id: string }[] = [];
+    for (let i = speechIdx - 1; i >= 0; i--) {
+      if ((currentProject!.segments[i].type || 'speech') === 'sfx') {
+        sfxSegs.unshift(currentProject!.segments[i]);
+      } else break;
+    }
+
+    const currentOrder = getZoneItems(zoneId, sfxSegs);
+    const fromIdx = currentOrder.indexOf(dragItemId);
+    const toIdx = currentOrder.indexOf(targetItemId);
+    if (fromIdx === -1 || toIdx === -1) { setZoneDragState(null); return; }
+
+    const newOrder = [...currentOrder];
+    newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, dragItemId);
+
+    setZoneOrders(prev => ({ ...prev, [zoneId]: newOrder }));
+    const newSfxOrder = newOrder.filter(id => id !== 'gap');
+    if (newSfxOrder.length > 0) {
+      reorderZoneSfx(zoneId, newSfxOrder);
+    }
+    setZoneDragState(null);
+  };
+
+  const handleZoneDragEnd = () => {
+    setZoneDragState(null);
+  };
+
   if (!currentProject) return null;
 
   return (
@@ -508,241 +583,183 @@ export function TextEditor() {
           <div className="space-y-0">
             {currentProject.segments.map((segment, idx) => {
               const segType = segment.type || 'speech';
+
+              // SFX segments are rendered inside transition zones, skip in main loop
+              if (segType === 'sfx') return null;
+
               const speaker = currentProject.speakers.find(
                 (s) => s.speaker_id === segment.speaker_id
               );
               const showToolbar = toolbarVisible[segment.id];
-              const hasPrevSegment = idx > 0;
-              const prevSegment = hasPrevSegment ? currentProject.segments[idx - 1] : null;
-              const prevSegType = prevSegment ? (prevSegment.type || 'speech') : 'speech';
-              const isSpeakerChange = prevSegment && prevSegment.speaker_id !== segment.speaker_id;
-              const currentGap = segment.speaker_gap ?? 0.6;
+              const gapValue = segment.speaker_gap ?? 0.6;
 
-              // 为 gap control 找到下一个 speech segment（当前段是 SFX 时需向后查找）
-              const nextSpeechSeg = segType !== 'sfx' ? segment : (() => {
-                for (let i = idx + 1; i < currentProject.segments.length; i++) {
-                  if ((currentProject.segments[i].type || 'speech') !== 'sfx') return currentProject.segments[i];
-                }
-                return null;
-              })();
-              const gapSegmentId = nextSpeechSeg?.id ?? segment.id;
-              const gapValue = nextSpeechSeg?.speaker_gap ?? 0.6;
+              // Collect SFX segments between previous speech and this speech
+              const sfxSegments = currentProject.segments.slice(0, 0); // typed empty array
+              for (let i = idx - 1; i >= 0; i--) {
+                const s = currentProject.segments[i];
+                if ((s.type || 'speech') === 'sfx') {
+                  sfxSegments.unshift(s);
+                } else break;
+              }
+              const hasPrevSpeech = idx - sfxSegments.length > 0;
+              const zoneItems = hasPrevSpeech ? getZoneItems(segment.id, sfxSegments) : [];
 
               return (
                 <React.Fragment key={segment.id}>
 
-                  {/* ===== 段间过渡区域（上下排列 = 播放顺序）===== */}
-                  {(() => {
-                    if (!hasPrevSegment) return null;
+                  {/* ===== 过渡区域：可拖拽的 gap + SFX 卡片 ===== */}
+                  {hasPrevSpeech && (
+                    <div className="flex flex-col items-center py-1.5 gap-1">
+                      {zoneItems.map((itemId) => {
+                        const isDragging = zoneDragState?.zoneId === segment.id && zoneDragState?.dragItemId === itemId;
+                        const isDragOver = zoneDragState?.zoneId === segment.id && zoneDragState?.overItemId === itemId;
 
-                    const isGapAfter = !!gapAfterSfx[gapSegmentId];
-                    const hasSfxNearby = segType === 'sfx' || prevSegType === 'sfx';
-
-                    // 渲染 gap 控件（带可选的排序切换按钮）
-                    const gapControl = (showSwap: boolean, swapToAfter: boolean) => (
-                      <div className="flex items-center gap-1">
-                        <Popover
-                          open={gapPopoverOpen === gapSegmentId}
-                          onOpenChange={(open) => setGapPopoverOpen(open ? gapSegmentId : null)}
-                        >
-                          <PopoverTrigger asChild>
-                            <button
-                              className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-gray-200 bg-white text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 transition-all shadow-sm"
-                              title={`Speaker gap: ${gapValue}s (click to change)`}
+                        if (itemId === 'gap') {
+                          return (
+                            <div
+                              key="gap"
+                              draggable
+                              onDragStart={(e) => handleZoneDragStart(e, segment.id, 'gap')}
+                              onDragOver={(e) => handleZoneDragOver(e, segment.id, 'gap')}
+                              onDrop={(e) => handleZoneDrop(e, segment.id, 'gap')}
+                              onDragEnd={handleZoneDragEnd}
+                              className={`flex items-center gap-1 cursor-grab active:cursor-grabbing transition-all ${
+                                isDragging ? 'opacity-40' : ''
+                              } ${isDragOver ? 'ring-2 ring-orange-300 rounded-full ring-offset-1' : ''}`}
                             >
-                              <span className="font-mono font-bold">||</span>
-                              <span>gap {gapValue}s</span>
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-3" align="center">
-                            <div className="text-xs font-medium text-gray-700 mb-2">Gap between segments</div>
-                            <div className="flex items-center gap-2">
-                              {[0.3, 0.6, 1.2].map((g) => (
-                                <Button
-                                  key={g}
-                                  variant={gapValue === g ? 'default' : 'outline'}
-                                  size="sm"
-                                  className="text-xs px-3"
-                                  onClick={() => handleSetSpeakerGap(gapSegmentId, g)}
-                                >
-                                  {g}s
-                                </Button>
-                              ))}
-                              <span className="text-xs text-gray-500">custom:</span>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                max="10"
-                                value={customGapInput}
-                                onChange={(e) => setCustomGapInput(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    const val = parseFloat(customGapInput);
-                                    if (!isNaN(val) && val >= 0 && val <= 10) {
-                                      handleSetSpeakerGap(gapSegmentId, val);
-                                    }
-                                  }
-                                }}
-                                className="h-8 w-16 text-xs"
-                                placeholder="s"
-                              />
+                              <GripVertical className="h-3 w-3 text-gray-300" />
+                              <Popover
+                                open={gapPopoverOpen === segment.id}
+                                onOpenChange={(open) => setGapPopoverOpen(open ? segment.id : null)}
+                              >
+                                <PopoverTrigger asChild>
+                                  <button
+                                    className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-gray-200 bg-white text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 transition-all shadow-sm"
+                                    title={`Speaker gap: ${gapValue}s (click to change)`}
+                                  >
+                                    <span className="font-mono font-bold">||</span>
+                                    <span>gap {gapValue}s</span>
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-3" align="center">
+                                  <div className="text-xs font-medium text-gray-700 mb-2">Gap between segments</div>
+                                  <div className="flex items-center gap-2">
+                                    {[0.3, 0.6, 1.2].map((g) => (
+                                      <Button
+                                        key={g}
+                                        variant={gapValue === g ? 'default' : 'outline'}
+                                        size="sm"
+                                        className="text-xs px-3"
+                                        onClick={() => handleSetSpeakerGap(segment.id, g)}
+                                      >
+                                        {g}s
+                                      </Button>
+                                    ))}
+                                    <span className="text-xs text-gray-500">custom:</span>
+                                    <Input
+                                      type="number"
+                                      step="0.1"
+                                      min="0"
+                                      max="10"
+                                      value={customGapInput}
+                                      onChange={(e) => setCustomGapInput(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          const val = parseFloat(customGapInput);
+                                          if (!isNaN(val) && val >= 0 && val <= 10) {
+                                            handleSetSpeakerGap(segment.id, val);
+                                          }
+                                        }
+                                      }}
+                                      className="h-8 w-16 text-xs"
+                                      placeholder="s"
+                                    />
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
                             </div>
-                          </PopoverContent>
-                        </Popover>
-                        {showSwap && (
-                          <button
-                            onClick={() => setGapAfterSfx(prev => ({ ...prev, [gapSegmentId]: swapToAfter }))}
-                            className="p-0.5 text-gray-300 hover:text-orange-500 transition-colors"
-                            title={swapToAfter ? '将停顿移到音效之后' : '将停顿移到音效之前'}
-                          >
-                            <ArrowUpDown className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    );
+                          );
+                        }
 
-                    const addSfxBtn = (afterId: string) => (
+                        // SFX item
+                        const sfxSeg = sfxSegments.find(s => s.id === itemId);
+                        if (!sfxSeg) return null;
+                        return (
+                          <div
+                            key={itemId}
+                            draggable
+                            onDragStart={(e) => handleZoneDragStart(e, segment.id, itemId)}
+                            onDragOver={(e) => handleZoneDragOver(e, segment.id, itemId)}
+                            onDrop={(e) => handleZoneDrop(e, segment.id, itemId)}
+                            onDragEnd={handleZoneDragEnd}
+                            className={`w-full max-w-2xl transition-all ${
+                              isDragging ? 'opacity-40' : ''
+                            } ${isDragOver ? 'ring-2 ring-amber-400 ring-offset-1 rounded-lg' : ''}`}
+                          >
+                            <div className="relative border-l-4 border-amber-400 bg-amber-50/80 rounded-lg">
+                              <div className="p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="cursor-grab active:cursor-grabbing text-amber-300 hover:text-amber-500 -ml-1">
+                                      <GripVertical className="h-4 w-4" />
+                                    </div>
+                                    <div className="h-7 w-7 rounded-full bg-amber-100 flex items-center justify-center">
+                                      <Music className="h-3.5 w-3.5 text-amber-600" />
+                                    </div>
+                                    <span className="text-sm font-medium text-amber-700">Sound Effect</span>
+                                    <select
+                                      value={sfxSeg.sfx_duration || 5}
+                                      onChange={(e) => updateSfxSegment(sfxSeg.id, { sfx_duration: Number(e.target.value) })}
+                                      className="text-xs border border-amber-200 rounded px-2 py-0.5 bg-white text-amber-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                    >
+                                      {[1, 3, 5, 8, 10].map((d) => (
+                                        <option key={d} value={d}>{d}s</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-amber-600 hover:bg-amber-100" onClick={() => handleGenerateSfx(sfxSeg.id)} disabled={loadingSegmentId === sfxSeg.id || !sfxSeg.text.trim()} title="Generate sound">
+                                      {loadingSegmentId === sfxSeg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Volume2 className="h-3.5 w-3.5 mr-1" />}
+                                      Generate
+                                    </Button>
+                                    {sfxAudioBlobs[sfxSeg.id] && (
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600 hover:bg-amber-100" onClick={() => handlePreviewSfx(sfxSeg.id)} title={playingSegmentId === sfxSeg.id ? 'Stop' : 'Preview'}>
+                                        {playingSegmentId === sfxSeg.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                                      </Button>
+                                    )}
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={() => removeSfxSegment(sfxSeg.id)} title="Remove sound effect">
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                <textarea
+                                  value={sfxSeg.text}
+                                  onChange={(e) => updateSfxSegment(sfxSeg.id, { text: e.target.value })}
+                                  className="w-full bg-white border border-amber-200 rounded px-3 py-2 text-sm text-gray-900 resize-none focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                  rows={2}
+                                  placeholder='Describe the sound (e.g., "coffee shop ambience", "thunder and rain")'
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {/* Add SFX button */}
                       <button
-                        onClick={() => insertSfxSegment(afterId)}
+                        onClick={() => {
+                          const prevId = idx > 0 ? currentProject.segments[idx - 1].id : null;
+                          insertSfxSegment(prevId);
+                        }}
                         className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-amber-200 bg-white text-amber-500 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all shadow-sm"
                         title="Insert sound effect"
                       >
                         <Music className="h-3 w-3" />
                         <span>Add SFX</span>
                       </button>
-                    );
-
-                    // Case 1: speech → speech（中间无 SFX）
-                    if (prevSegType === 'speech' && segType === 'speech') {
-                      return (
-                        <div className="flex flex-col items-center py-1.5 gap-1">
-                          {gapControl(false, false)}
-                          {addSfxBtn(prevSegment!.id)}
-                        </div>
-                      );
-                    }
-
-                    // Case 2: speech → SFX（过渡区开始）
-                    if (prevSegType === 'speech' && segType === 'sfx') {
-                      if (!isGapAfter) {
-                        // gap 在前（默认）：这里显示 gap
-                        return (
-                          <div className="flex flex-col items-center py-1.5 gap-1">
-                            {gapControl(true, true)}
-                          </div>
-                        );
-                      }
-                      return null; // gap 在后，这里不显示
-                    }
-
-                    // Case 3: SFX → speech（过渡区结束）
-                    if (prevSegType === 'sfx' && segType === 'speech') {
-                      return (
-                        <div className="flex flex-col items-center py-1.5 gap-1">
-                          {isGapAfter && gapControl(true, false)}
-                          {addSfxBtn(prevSegment!.id)}
-                        </div>
-                      );
-                    }
-
-                    // Case 4: SFX → SFX（过渡区中间，不显示额外控件）
-                    return null;
-                  })()}
-
-                  {/* ===== SFX Segment 渲染 ===== */}
-                  {segType === 'sfx' ? (
-                    <div
-                      className={`relative border-l-4 border-amber-400 bg-amber-50/80 rounded-lg my-1 transition-all ${
-                        dragOverIndex === idx && dragFromIndex !== idx ? 'ring-2 ring-amber-400 ring-offset-2' : ''
-                      } ${dragFromIndex === idx ? 'opacity-40' : ''}`}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, idx)}
-                      onDragOver={(e) => handleDragOver(e, idx)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, idx)}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <div className="p-3">
-                        {/* SFX header */}
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            {/* Drag handle */}
-                            <div className="cursor-grab active:cursor-grabbing text-amber-300 hover:text-amber-500 -ml-1">
-                              <GripVertical className="h-4 w-4" />
-                            </div>
-                            <div className="h-7 w-7 rounded-full bg-amber-100 flex items-center justify-center">
-                              <Music className="h-3.5 w-3.5 text-amber-600" />
-                            </div>
-                            <span className="text-sm font-medium text-amber-700">Sound Effect</span>
-                            <select
-                              value={segment.sfx_duration || 5}
-                              onChange={(e) => updateSfxSegment(segment.id, { sfx_duration: Number(e.target.value) })}
-                              className="text-xs border border-amber-200 rounded px-2 py-0.5 bg-white text-amber-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                            >
-                              {[1, 3, 5, 8, 10].map((d) => (
-                                <option key={d} value={d}>{d}s</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            {/* Generate */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs text-amber-600 hover:bg-amber-100"
-                              onClick={() => handleGenerateSfx(segment.id)}
-                              disabled={loadingSegmentId === segment.id || !segment.text.trim()}
-                              title="Generate sound"
-                            >
-                              {loadingSegmentId === segment.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                              ) : (
-                                <Volume2 className="h-3.5 w-3.5 mr-1" />
-                              )}
-                              Generate
-                            </Button>
-
-                            {/* Preview (only if audio blob exists) */}
-                            {sfxAudioBlobs[segment.id] && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-amber-600 hover:bg-amber-100"
-                                onClick={() => handlePreviewSfx(segment.id)}
-                                title={playingSegmentId === segment.id ? 'Stop' : 'Preview'}
-                              >
-                                {playingSegmentId === segment.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                              </Button>
-                            )}
-
-                            {/* Delete */}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-gray-400 hover:text-red-500"
-                              onClick={() => removeSfxSegment(segment.id)}
-                              title="Remove sound effect"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* SFX text description */}
-                        <textarea
-                          value={segment.text}
-                          onChange={(e) => updateSfxSegment(segment.id, { text: e.target.value })}
-                          className="w-full bg-white border border-amber-200 rounded px-3 py-2 text-sm text-gray-900 resize-none focus:outline-none focus:ring-1 focus:ring-amber-400"
-                          rows={2}
-                          placeholder='Describe the sound (e.g., "coffee shop ambience", "thunder and rain")'
-                        />
-                      </div>
                     </div>
-                  ) : (
+                  )}
 
-                  /* ===== Speech Segment 渲染（原有逻辑不变） ===== */
+                  {/* ===== Speech Segment 渲染 ===== */}
                 <div
                   className={`group relative flex transition-all ${
                     dragOverIndex === idx && dragFromIndex !== idx ? 'ring-2 ring-orange-400 ring-offset-2 rounded-lg' : ''
@@ -1010,7 +1027,6 @@ export function TextEditor() {
                     />
                   </div>
                 </div>
-                  )}
                 </React.Fragment>
               );
             })}

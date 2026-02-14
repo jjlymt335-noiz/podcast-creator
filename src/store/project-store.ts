@@ -28,6 +28,7 @@ interface ProjectState {
   splitSegmentWithPause: (segmentId: string, position: number, pauseDuration: number) => void;
   deleteSegments: (segmentIds: string[]) => void;
   reorderSegments: (fromIndex: number, toIndex: number) => void;
+  reorderZoneSfx: (speechSegmentId: string, newSfxIdOrder: string[]) => void;
 
   // SFX 音效管理
   sfxAudioBlobs: Record<string, Blob>;
@@ -509,6 +510,28 @@ export const useProjectStore = create<ProjectState>()(
             segments,
             updated_at: Date.now(),
           },
+        });
+      },
+
+      reorderZoneSfx: (speechSegmentId: string, newSfxIdOrder: string[]) => {
+        const { currentProject } = get();
+        if (!currentProject) return;
+        const speechIdx = currentProject.segments.findIndex(s => s.id === speechSegmentId);
+        if (speechIdx === -1) return;
+        let sfxStart = speechIdx;
+        while (sfxStart > 0 && (currentProject.segments[sfxStart - 1].type || 'speech') === 'sfx') {
+          sfxStart--;
+        }
+        const sfxCount = speechIdx - sfxStart;
+        if (sfxCount === 0) return;
+        const sfxSegments = currentProject.segments.slice(sfxStart, speechIdx);
+        const sfxById = new Map(sfxSegments.map(s => [s.id, s]));
+        const reordered = newSfxIdOrder.map(id => sfxById.get(id)).filter(Boolean) as ProjectSegment[];
+        if (reordered.length !== sfxCount) return;
+        const segments = [...currentProject.segments];
+        segments.splice(sfxStart, sfxCount, ...reordered);
+        set({
+          currentProject: { ...currentProject, segments, updated_at: Date.now() },
         });
       },
 
