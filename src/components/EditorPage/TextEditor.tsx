@@ -93,6 +93,7 @@ export function TextEditor() {
   // Zone ordering: tracks item order (gap + SFX) within transition zones between speeches
   const [zoneOrders, setZoneOrders] = useState<Record<string, string[]>>({});
   const [expandedSfx, setExpandedSfx] = useState<Record<string, boolean>>({});
+  const [expandedZones, setExpandedZones] = useState<Record<string, boolean>>({});
   const [newLineSegmentId, setNewLineSegmentId] = useState<string | null>(null);
 
   // Auto-initialize: when segments are empty, create a default speaker + first segment
@@ -590,10 +591,14 @@ export function TextEditor() {
                 <React.Fragment key={segment.id}>
 
                   {/* ===== 过渡区域 ===== */}
-                  {hasPrevSpeech && (
+                  {hasPrevSpeech && (() => {
+                    const zoneExpanded = expandedZones[segment.id] || false;
+                    const firstSfx = sfxSegments[0] || null;
+                    return zoneExpanded ? (
+                    /* ── 展开态：完整编辑面板 ── */
                     <div className="py-2 pl-5">
                       <div className="border-t border-dashed border-gray-200 mb-2" />
-                      {/* 引导文案 — 完整描述当前播放顺序 */}
+                      {/* 引导文案 */}
                       <div className="mb-2 text-[11px] text-gray-400 space-y-0.5">
                         <p>
                           {(() => {
@@ -663,22 +668,13 @@ export function TextEditor() {
                                     </div>
                                   </PopoverContent>
                                 </Popover>
-                                {/* 2+项时才显示箭头：上面→↓，下面→↑ */}
                                 {!isLast && (
-                                  <button
-                                    onClick={() => moveZoneItem(segment.id, 'gap', 'down')}
-                                    className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
-                                    title="Move down"
-                                  >
+                                  <button onClick={() => moveZoneItem(segment.id, 'gap', 'down')} className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors" title="Move down">
                                     <ChevronDown className="h-4 w-4" />
                                   </button>
                                 )}
                                 {!isFirst && isLast && (
-                                  <button
-                                    onClick={() => moveZoneItem(segment.id, 'gap', 'up')}
-                                    className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
-                                    title="Move up"
-                                  >
+                                  <button onClick={() => moveZoneItem(segment.id, 'gap', 'up')} className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors" title="Move up">
                                     <ChevronUp className="h-4 w-4" />
                                   </button>
                                 )}
@@ -693,7 +689,6 @@ export function TextEditor() {
                           return (
                             <div key={itemId}>
                               <div className="flex items-center gap-2">
-                                {/* 收起态：小标签，和 gap 一样的 pill */}
                                 <button
                                   onClick={() => setExpandedSfx(prev => ({ ...prev, [sfxSeg.id]: !sfxExpanded }))}
                                   className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-full border transition-all shadow-sm ${
@@ -707,41 +702,26 @@ export function TextEditor() {
                                   <span>{sfxSeg.text.trim() ? sfxSeg.text.trim().slice(0, 20) + (sfxSeg.text.trim().length > 20 ? '...' : '') : 'Sound Effect'}</span>
                                   <span className="text-[10px] opacity-70">{sfxSeg.sfx_duration || 5}s</span>
                                 </button>
-                                {/* 箭头 */}
                                 {!(isFirst && isLast) && (
                                   <>
                                     {!isLast && (
-                                      <button
-                                        onClick={() => moveZoneItem(segment.id, itemId, 'down')}
-                                        className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
-                                        title="Move down"
-                                      >
+                                      <button onClick={() => moveZoneItem(segment.id, itemId, 'down')} className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors" title="Move down">
                                         <ChevronDown className="h-4 w-4" />
                                       </button>
                                     )}
                                     {!isFirst && isLast && (
-                                      <button
-                                        onClick={() => moveZoneItem(segment.id, itemId, 'up')}
-                                        className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
-                                        title="Move up"
-                                      >
+                                      <button onClick={() => moveZoneItem(segment.id, itemId, 'up')} className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors" title="Move up">
                                         <ChevronUp className="h-4 w-4" />
                                       </button>
                                     )}
                                   </>
                                 )}
-                                {/* 快捷操作 */}
                                 {sfxAudioBlobs[sfxSeg.id] && !sfxExpanded && (
-                                  <button
-                                    onClick={() => handlePreviewSfx(sfxSeg.id)}
-                                    className="p-0.5 text-amber-500 hover:text-amber-700 transition-colors"
-                                    title={playingSegmentId === sfxSeg.id ? 'Stop' : 'Preview'}
-                                  >
+                                  <button onClick={() => handlePreviewSfx(sfxSeg.id)} className="p-0.5 text-amber-500 hover:text-amber-700 transition-colors" title={playingSegmentId === sfxSeg.id ? 'Stop' : 'Preview'}>
                                     {playingSegmentId === sfxSeg.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                                   </button>
                                 )}
                               </div>
-                              {/* 展开态 */}
                               {sfxExpanded && (
                                 <div className="mt-2 border-l-4 border-amber-400 bg-amber-50/80 rounded-lg">
                                   <div className="p-3">
@@ -786,11 +766,42 @@ export function TextEditor() {
                             </div>
                           );
                         })}
-                        {/* SFX is auto-inserted, no manual add button needed */}
                       </div>
-                      <div className="border-t border-dashed border-gray-200 mt-2" />
+                      {/* 收起按钮 */}
+                      <div className="flex items-center justify-center gap-3 mt-2">
+                        <div className="flex-1 border-t border-dashed border-gray-200" />
+                        <button
+                          onClick={() => setExpandedZones(prev => ({ ...prev, [segment.id]: false }))}
+                          className="text-xs text-gray-400 hover:text-orange-500 transition-colors whitespace-nowrap"
+                        >
+                          收起
+                        </button>
+                        <div className="flex-1 border-t border-dashed border-gray-200" />
+                      </div>
                     </div>
-                  )}
+                  ) : (
+                    /* ── 收起态：横线上显示 pill 摘要 + 展开按钮 ── */
+                    <div className="relative flex items-center justify-center py-2 gap-3">
+                      <div className="flex-1 border-t border-dashed border-gray-200" />
+                      <span className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm">
+                        <span className="font-mono font-bold text-[10px]">||</span>
+                        <span>gap {gapValue}s</span>
+                      </span>
+                      <span className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-amber-200 bg-white text-amber-500 shadow-sm">
+                        <Music className="h-3 w-3" />
+                        <span>{firstSfx?.text.trim() ? firstSfx.text.trim().slice(0, 12) + (firstSfx.text.trim().length > 12 ? '...' : '') : 'Sound Effect'}</span>
+                        <span className="text-[10px] opacity-70">{firstSfx?.sfx_duration || 5}s</span>
+                      </span>
+                      <button
+                        onClick={() => setExpandedZones(prev => ({ ...prev, [segment.id]: true }))}
+                        className="text-xs text-gray-400 hover:text-orange-500 transition-colors whitespace-nowrap"
+                      >
+                        个性化停顿与音效
+                      </button>
+                      <div className="flex-1 border-t border-dashed border-gray-200" />
+                    </div>
+                  );
+                  })()}
 
                   {/* ===== Speech Segment 渲染 ===== */}
                 <div
