@@ -641,7 +641,7 @@ export function TextEditor() {
                                     <button
                                       onClick={() => moveZoneItem(segment.id, 'gap', 'up')}
                                       disabled={!canMoveUp}
-                                      className={`p-0 leading-none transition-colors ${canMoveUp ? 'text-gray-400 hover:text-orange-500' : 'text-gray-200 cursor-default'}`}
+                                      className="p-0 leading-none transition-colors text-gray-400 hover:text-orange-500"
                                       title="Move up"
                                     >
                                       <ChevronUp className="h-3.5 w-3.5" />
@@ -649,7 +649,7 @@ export function TextEditor() {
                                     <button
                                       onClick={() => moveZoneItem(segment.id, 'gap', 'down')}
                                       disabled={!canMoveDown}
-                                      className={`p-0 leading-none transition-colors ${canMoveDown ? 'text-gray-400 hover:text-orange-500' : 'text-gray-200 cursor-default'}`}
+                                      className="p-0 leading-none transition-colors text-gray-400 hover:text-orange-500"
                                       title="Move down"
                                     >
                                       <ChevronDown className="h-3.5 w-3.5" />
@@ -712,7 +712,7 @@ export function TextEditor() {
                                   <button
                                     onClick={() => moveZoneItem(segment.id, itemId, 'up')}
                                     disabled={!canMoveUp}
-                                    className={`p-0.5 leading-none transition-colors ${canMoveUp ? 'text-gray-400 hover:text-orange-500' : 'text-gray-200 cursor-default'}`}
+                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
                                     title="Move up"
                                   >
                                     <ChevronUp className="h-4 w-4" />
@@ -720,7 +720,7 @@ export function TextEditor() {
                                   <button
                                     onClick={() => moveZoneItem(segment.id, itemId, 'down')}
                                     disabled={!canMoveDown}
-                                    className={`p-0.5 leading-none transition-colors ${canMoveDown ? 'text-gray-400 hover:text-orange-500' : 'text-gray-200 cursor-default'}`}
+                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
                                     title="Move down"
                                   >
                                     <ChevronDown className="h-4 w-4" />
