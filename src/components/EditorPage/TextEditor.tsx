@@ -580,7 +580,7 @@ export function TextEditor() {
                       <div className="border-t border-dashed border-gray-200 mb-2.5" />
                       <div className="flex flex-col gap-2 max-w-2xl">
                         {zoneItems.map((itemId, zoneIdx) => {
-                          const showArrows = zoneItems.length > 1;
+                          const showArrows = true;
                           const canMoveUp = zoneIdx > 0;
                           const canMoveDown = zoneIdx < zoneItems.length - 1;
 
