@@ -574,172 +574,178 @@ export function TextEditor() {
               return (
                 <React.Fragment key={segment.id}>
 
-                  {/* ===== 过渡区域：gap + SFX 卡片（用箭头按钮调整顺序）===== */}
+                  {/* ===== 过渡区域 ===== */}
                   {hasPrevSpeech && (
-                    <div className="flex flex-col items-center py-1.5 gap-1">
-                      {zoneItems.map((itemId, zoneIdx) => {
-                        const showArrows = zoneItems.length > 1;
-                        const canMoveUp = zoneIdx > 0;
-                        const canMoveDown = zoneIdx < zoneItems.length - 1;
+                    <div className="py-2 pl-5">
+                      <div className="border-t border-dashed border-gray-200 mb-2.5" />
+                      <div className="flex flex-col gap-2 max-w-2xl">
+                        {zoneItems.map((itemId, zoneIdx) => {
+                          const showArrows = zoneItems.length > 1;
+                          const canMoveUp = zoneIdx > 0;
+                          const canMoveDown = zoneIdx < zoneItems.length - 1;
 
-                        if (itemId === 'gap') {
-                          return (
-                            <div key="gap" className="flex items-center gap-1.5">
-                              {showArrows && (
-                                <button
-                                  onClick={() => moveZoneItem(segment.id, 'gap', 'up')}
-                                  disabled={!canMoveUp}
-                                  className={`p-0.5 rounded transition-colors ${canMoveUp ? 'text-gray-400 hover:text-orange-500 hover:bg-orange-50' : 'text-gray-200 cursor-default'}`}
-                                  title="Move up"
+                          if (itemId === 'gap') {
+                            return (
+                              <div key="gap" className="flex items-center gap-2">
+                                <Popover
+                                  open={gapPopoverOpen === segment.id}
+                                  onOpenChange={(open) => setGapPopoverOpen(open ? segment.id : null)}
                                 >
-                                  <ChevronUp className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                              <Popover
-                                open={gapPopoverOpen === segment.id}
-                                onOpenChange={(open) => setGapPopoverOpen(open ? segment.id : null)}
-                              >
-                                <PopoverTrigger asChild>
-                                  <button
-                                    className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-gray-200 bg-white text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 transition-all shadow-sm"
-                                    title={`Speaker gap: ${gapValue}s (click to change)`}
-                                  >
-                                    <span className="font-mono font-bold">||</span>
-                                    <span>gap {gapValue}s</span>
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-3" align="center">
-                                  <div className="text-xs font-medium text-gray-700 mb-2">Gap between segments</div>
-                                  <div className="flex items-center gap-2">
-                                    {[0.3, 0.6, 1.2].map((g) => (
-                                      <Button
-                                        key={g}
-                                        variant={gapValue === g ? 'default' : 'outline'}
-                                        size="sm"
-                                        className="text-xs px-3"
-                                        onClick={() => handleSetSpeakerGap(segment.id, g)}
-                                      >
-                                        {g}s
-                                      </Button>
-                                    ))}
-                                    <span className="text-xs text-gray-500">custom:</span>
-                                    <Input
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="10"
-                                      value={customGapInput}
-                                      onChange={(e) => setCustomGapInput(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          const val = parseFloat(customGapInput);
-                                          if (!isNaN(val) && val >= 0 && val <= 10) {
-                                            handleSetSpeakerGap(segment.id, val);
+                                  <PopoverTrigger asChild>
+                                    <button
+                                      className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-full border border-gray-200 bg-white text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 transition-all shadow-sm"
+                                      title={`Speaker gap: ${gapValue}s (click to change)`}
+                                    >
+                                      <span className="font-mono font-bold text-[10px]">||</span>
+                                      <span>gap {gapValue}s</span>
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-3" align="start">
+                                    <div className="text-xs font-medium text-gray-700 mb-2">Gap between segments</div>
+                                    <div className="flex items-center gap-2">
+                                      {[0.3, 0.6, 1.2].map((g) => (
+                                        <Button
+                                          key={g}
+                                          variant={gapValue === g ? 'default' : 'outline'}
+                                          size="sm"
+                                          className="text-xs px-3"
+                                          onClick={() => handleSetSpeakerGap(segment.id, g)}
+                                        >
+                                          {g}s
+                                        </Button>
+                                      ))}
+                                      <span className="text-xs text-gray-500">custom:</span>
+                                      <Input
+                                        type="number"
+                                        step="0.1"
+                                        min="0"
+                                        max="10"
+                                        value={customGapInput}
+                                        onChange={(e) => setCustomGapInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            const val = parseFloat(customGapInput);
+                                            if (!isNaN(val) && val >= 0 && val <= 10) {
+                                              handleSetSpeakerGap(segment.id, val);
+                                            }
                                           }
-                                        }
-                                      }}
-                                      className="h-8 w-16 text-xs"
-                                      placeholder="s"
-                                    />
+                                        }}
+                                        className="h-8 w-16 text-xs"
+                                        placeholder="s"
+                                      />
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                                {showArrows && (
+                                  <div className="flex flex-col">
+                                    <button
+                                      onClick={() => moveZoneItem(segment.id, 'gap', 'up')}
+                                      disabled={!canMoveUp}
+                                      className={`p-0 leading-none transition-colors ${canMoveUp ? 'text-gray-400 hover:text-orange-500' : 'text-gray-200 cursor-default'}`}
+                                      title="Move up"
+                                    >
+                                      <ChevronUp className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => moveZoneItem(segment.id, 'gap', 'down')}
+                                      disabled={!canMoveDown}
+                                      className={`p-0 leading-none transition-colors ${canMoveDown ? 'text-gray-400 hover:text-orange-500' : 'text-gray-200 cursor-default'}`}
+                                      title="Move down"
+                                    >
+                                      <ChevronDown className="h-3.5 w-3.5" />
+                                    </button>
                                   </div>
-                                </PopoverContent>
-                              </Popover>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          // SFX item
+                          const sfxSeg = sfxSegments.find(s => s.id === itemId);
+                          if (!sfxSeg) return null;
+                          return (
+                            <div key={itemId} className="flex items-start gap-2">
+                              <div className="flex-1 border-l-4 border-amber-400 bg-amber-50/80 rounded-lg">
+                                <div className="p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-7 w-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                        <Music className="h-3.5 w-3.5 text-amber-600" />
+                                      </div>
+                                      <span className="text-sm font-medium text-amber-700">Sound Effect</span>
+                                      <select
+                                        value={sfxSeg.sfx_duration || 5}
+                                        onChange={(e) => updateSfxSegment(sfxSeg.id, { sfx_duration: Number(e.target.value) })}
+                                        className="text-xs border border-amber-200 rounded px-2 py-0.5 bg-white text-amber-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                      >
+                                        {[1, 3, 5, 8, 10].map((d) => (
+                                          <option key={d} value={d}>{d}s</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-amber-600 hover:bg-amber-100" onClick={() => handleGenerateSfx(sfxSeg.id)} disabled={loadingSegmentId === sfxSeg.id || !sfxSeg.text.trim()} title="Generate sound">
+                                        {loadingSegmentId === sfxSeg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Volume2 className="h-3.5 w-3.5 mr-1" />}
+                                        Generate
+                                      </Button>
+                                      {sfxAudioBlobs[sfxSeg.id] && (
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600 hover:bg-amber-100" onClick={() => handlePreviewSfx(sfxSeg.id)} title={playingSegmentId === sfxSeg.id ? 'Stop' : 'Preview'}>
+                                          {playingSegmentId === sfxSeg.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                                        </Button>
+                                      )}
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={() => removeSfxSegment(sfxSeg.id)} title="Remove sound effect">
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <textarea
+                                    value={sfxSeg.text}
+                                    onChange={(e) => updateSfxSegment(sfxSeg.id, { text: e.target.value })}
+                                    className="w-full bg-white border border-amber-200 rounded px-3 py-2 text-sm text-gray-900 resize-none focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                    rows={2}
+                                    placeholder='Describe the sound (e.g., "coffee shop ambience", "thunder and rain")'
+                                  />
+                                </div>
+                              </div>
                               {showArrows && (
-                                <button
-                                  onClick={() => moveZoneItem(segment.id, 'gap', 'down')}
-                                  disabled={!canMoveDown}
-                                  className={`p-0.5 rounded transition-colors ${canMoveDown ? 'text-gray-400 hover:text-orange-500 hover:bg-orange-50' : 'text-gray-200 cursor-default'}`}
-                                  title="Move down"
-                                >
-                                  <ChevronDown className="h-3.5 w-3.5" />
-                                </button>
+                                <div className="flex flex-col pt-3">
+                                  <button
+                                    onClick={() => moveZoneItem(segment.id, itemId, 'up')}
+                                    disabled={!canMoveUp}
+                                    className={`p-0.5 leading-none transition-colors ${canMoveUp ? 'text-gray-400 hover:text-orange-500' : 'text-gray-200 cursor-default'}`}
+                                    title="Move up"
+                                  >
+                                    <ChevronUp className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => moveZoneItem(segment.id, itemId, 'down')}
+                                    disabled={!canMoveDown}
+                                    className={`p-0.5 leading-none transition-colors ${canMoveDown ? 'text-gray-400 hover:text-orange-500' : 'text-gray-200 cursor-default'}`}
+                                    title="Move down"
+                                  >
+                                    <ChevronDown className="h-4 w-4" />
+                                  </button>
+                                </div>
                               )}
                             </div>
                           );
-                        }
-
-                        // SFX item
-                        const sfxSeg = sfxSegments.find(s => s.id === itemId);
-                        if (!sfxSeg) return null;
-                        return (
-                          <div key={itemId} className="w-full max-w-2xl">
-                            <div className="relative border-l-4 border-amber-400 bg-amber-50/80 rounded-lg">
-                              <div className="p-3">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center gap-2">
-                                    {showArrows && (
-                                      <div className="flex flex-col -ml-1">
-                                        <button
-                                          onClick={() => moveZoneItem(segment.id, itemId, 'up')}
-                                          disabled={!canMoveUp}
-                                          className={`p-0 leading-none transition-colors ${canMoveUp ? 'text-amber-400 hover:text-amber-600' : 'text-gray-200 cursor-default'}`}
-                                          title="Move up"
-                                        >
-                                          <ChevronUp className="h-4 w-4" />
-                                        </button>
-                                        <button
-                                          onClick={() => moveZoneItem(segment.id, itemId, 'down')}
-                                          disabled={!canMoveDown}
-                                          className={`p-0 leading-none transition-colors ${canMoveDown ? 'text-amber-400 hover:text-amber-600' : 'text-gray-200 cursor-default'}`}
-                                          title="Move down"
-                                        >
-                                          <ChevronDown className="h-4 w-4" />
-                                        </button>
-                                      </div>
-                                    )}
-                                    <div className="h-7 w-7 rounded-full bg-amber-100 flex items-center justify-center">
-                                      <Music className="h-3.5 w-3.5 text-amber-600" />
-                                    </div>
-                                    <span className="text-sm font-medium text-amber-700">Sound Effect</span>
-                                    <select
-                                      value={sfxSeg.sfx_duration || 5}
-                                      onChange={(e) => updateSfxSegment(sfxSeg.id, { sfx_duration: Number(e.target.value) })}
-                                      className="text-xs border border-amber-200 rounded px-2 py-0.5 bg-white text-amber-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                                    >
-                                      {[1, 3, 5, 8, 10].map((d) => (
-                                        <option key={d} value={d}>{d}s</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-amber-600 hover:bg-amber-100" onClick={() => handleGenerateSfx(sfxSeg.id)} disabled={loadingSegmentId === sfxSeg.id || !sfxSeg.text.trim()} title="Generate sound">
-                                      {loadingSegmentId === sfxSeg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Volume2 className="h-3.5 w-3.5 mr-1" />}
-                                      Generate
-                                    </Button>
-                                    {sfxAudioBlobs[sfxSeg.id] && (
-                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600 hover:bg-amber-100" onClick={() => handlePreviewSfx(sfxSeg.id)} title={playingSegmentId === sfxSeg.id ? 'Stop' : 'Preview'}>
-                                        {playingSegmentId === sfxSeg.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                                      </Button>
-                                    )}
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={() => removeSfxSegment(sfxSeg.id)} title="Remove sound effect">
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </div>
-                                </div>
-                                <textarea
-                                  value={sfxSeg.text}
-                                  onChange={(e) => updateSfxSegment(sfxSeg.id, { text: e.target.value })}
-                                  className="w-full bg-white border border-amber-200 rounded px-3 py-2 text-sm text-gray-900 resize-none focus:outline-none focus:ring-1 focus:ring-amber-400"
-                                  rows={2}
-                                  placeholder='Describe the sound (e.g., "coffee shop ambience", "thunder and rain")'
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {/* Add SFX button */}
-                      <button
-                        onClick={() => {
-                          const prevId = idx > 0 ? currentProject.segments[idx - 1].id : null;
-                          insertSfxSegment(prevId);
-                        }}
-                        className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-amber-200 bg-white text-amber-500 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all shadow-sm"
-                        title="Insert sound effect"
-                      >
-                        <Music className="h-3 w-3" />
-                        <span>Add SFX</span>
-                      </button>
+                        })}
+                        {/* Add SFX button */}
+                        <div>
+                          <button
+                            onClick={() => {
+                              const prevId = idx > 0 ? currentProject.segments[idx - 1].id : null;
+                              insertSfxSegment(prevId);
+                            }}
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-full border border-dashed border-amber-300 bg-white text-amber-500 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all"
+                            title="Insert sound effect"
+                          >
+                            <Music className="h-3 w-3" />
+                            <span>Add SFX</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="border-t border-dashed border-gray-200 mt-2.5" />
                     </div>
                   )}
 
