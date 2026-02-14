@@ -15,6 +15,7 @@ import {
   Music,
   Volume2,
   GripVertical,
+  ArrowDown,
 } from 'lucide-react';
 import { useProjectStore, useUIStore } from '@/store';
 import * as api from '@/lib/api';
@@ -516,77 +517,90 @@ export function TextEditor() {
               return (
                 <React.Fragment key={segment.id}>
 
-                  {/* ===== 段间工具栏：两个并排的独立入口（仅 speech 段之间显示） ===== */}
-                  {hasPrevSegment && segType !== 'sfx' && prevSegType !== 'sfx' && (
-                    <div className="relative flex items-center justify-center py-2 gap-3">
-                      {/* 左侧虚线 */}
-                      <div className="flex-1 border-t border-dashed border-gray-200" />
+                  {/* ===== 段间流向连接器（所有相邻段之间显示） ===== */}
+                  {hasPrevSegment && (
+                    <div className="flex flex-col items-center py-0.5">
+                      {/* 上方流向箭头 */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-px h-3 bg-gray-200" />
+                        <ArrowDown className="h-4 w-4 text-gray-300" />
+                      </div>
 
-                      {/* 入口1: 停顿控制 */}
-                      <Popover
-                        open={gapPopoverOpen === segment.id}
-                        onOpenChange={(open) => setGapPopoverOpen(open ? segment.id : null)}
-                      >
-                        <PopoverTrigger asChild>
-                          <button
-                            className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-gray-200 bg-white text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 transition-all shadow-sm"
-                            title={`Speaker gap: ${currentGap}s (click to change)`}
-                          >
-                            <span className="font-mono font-bold">||</span>
-                            <span>gap {currentGap}s</span>
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-3" align="center">
-                          <div className="text-xs font-medium text-gray-700 mb-2">
-                            {isSpeakerChange ? 'Gap between speakers' : 'Gap between segments'}
+                      {/* 两个独立入口（仅 speech 段之间显示）*/}
+                      {segType !== 'sfx' && prevSegType !== 'sfx' && (
+                        <>
+                          <div className="flex items-center gap-2 py-1.5">
+                            {/* 入口1: 停顿控制 */}
+                            <Popover
+                              open={gapPopoverOpen === segment.id}
+                              onOpenChange={(open) => setGapPopoverOpen(open ? segment.id : null)}
+                            >
+                              <PopoverTrigger asChild>
+                                <button
+                                  className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-gray-200 bg-white text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 transition-all shadow-sm"
+                                  title={`Speaker gap: ${currentGap}s (click to change)`}
+                                >
+                                  <span className="font-mono font-bold">||</span>
+                                  <span>gap {currentGap}s</span>
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-3" align="center">
+                                <div className="text-xs font-medium text-gray-700 mb-2">
+                                  {isSpeakerChange ? 'Gap between speakers' : 'Gap between segments'}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {[0.3, 0.6, 1.2].map((g) => (
+                                    <Button
+                                      key={g}
+                                      variant={currentGap === g ? 'default' : 'outline'}
+                                      size="sm"
+                                      className="text-xs px-3"
+                                      onClick={() => handleSetSpeakerGap(segment.id, g)}
+                                    >
+                                      {g}s
+                                    </Button>
+                                  ))}
+                                  <span className="text-xs text-gray-500">custom:</span>
+                                  <Input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    max="10"
+                                    value={customGapInput}
+                                    onChange={(e) => setCustomGapInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const val = parseFloat(customGapInput);
+                                        if (!isNaN(val) && val >= 0 && val <= 10) {
+                                          handleSetSpeakerGap(segment.id, val);
+                                        }
+                                      }
+                                    }}
+                                    className="h-8 w-16 text-xs"
+                                    placeholder="s"
+                                  />
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+
+                            {/* 入口2: SFX 音效插入 */}
+                            <button
+                              onClick={() => insertSfxSegment(prevSegment!.id)}
+                              className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-amber-200 bg-white text-amber-500 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all shadow-sm"
+                              title="Insert sound effect"
+                            >
+                              <Music className="h-3 w-3" />
+                              <span>Add SFX</span>
+                            </button>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {[0.3, 0.6, 1.2].map((g) => (
-                              <Button
-                                key={g}
-                                variant={currentGap === g ? 'default' : 'outline'}
-                                size="sm"
-                                className="text-xs px-3"
-                                onClick={() => handleSetSpeakerGap(segment.id, g)}
-                              >
-                                {g}s
-                              </Button>
-                            ))}
-                            <span className="text-xs text-gray-500">custom:</span>
-                            <Input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              max="10"
-                              value={customGapInput}
-                              onChange={(e) => setCustomGapInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  const val = parseFloat(customGapInput);
-                                  if (!isNaN(val) && val >= 0 && val <= 10) {
-                                    handleSetSpeakerGap(segment.id, val);
-                                  }
-                                }
-                              }}
-                              className="h-8 w-16 text-xs"
-                              placeholder="s"
-                            />
+
+                          {/* 下方流向箭头 */}
+                          <div className="flex flex-col items-center">
+                            <ArrowDown className="h-4 w-4 text-gray-300" />
+                            <div className="w-px h-2 bg-gray-200" />
                           </div>
-                        </PopoverContent>
-                      </Popover>
-
-                      {/* 入口2: SFX 音效插入 */}
-                      <button
-                        onClick={() => insertSfxSegment(prevSegment!.id)}
-                        className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-amber-200 bg-white text-amber-500 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all shadow-sm"
-                        title="Insert sound effect"
-                      >
-                        <Music className="h-3 w-3" />
-                        <span>Add SFX</span>
-                      </button>
-
-                      {/* 右侧虚线 */}
-                      <div className="flex-1 border-t border-dashed border-gray-200" />
+                        </>
+                      )}
                     </div>
                   )}
 
@@ -607,9 +621,11 @@ export function TextEditor() {
                         {/* SFX header */}
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            {/* Drag handle */}
-                            <div className="cursor-grab active:cursor-grabbing text-amber-300 hover:text-amber-500 -ml-1">
-                              <GripVertical className="h-4 w-4" />
+                            {/* Step number (doubles as drag handle) */}
+                            <div className="cursor-grab active:cursor-grabbing -ml-1" title="Drag to reorder">
+                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold shadow-sm">
+                                {idx + 1}
+                              </span>
                             </div>
                             <div className="h-7 w-7 rounded-full bg-amber-100 flex items-center justify-center">
                               <Music className="h-3.5 w-3.5 text-amber-600" />
@@ -620,7 +636,7 @@ export function TextEditor() {
                               onChange={(e) => updateSfxSegment(segment.id, { sfx_duration: Number(e.target.value) })}
                               className="text-xs border border-amber-200 rounded px-2 py-0.5 bg-white text-amber-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
                             >
-                              {[3, 5, 8, 10, 15, 20].map((d) => (
+                              {[1, 3, 5, 8, 10].map((d) => (
                                 <option key={d} value={d}>{d}s</option>
                               ))}
                             </select>
@@ -696,9 +712,11 @@ export function TextEditor() {
                   onDrop={(e) => handleDrop(e, idx)}
                   onDragEnd={handleDragEnd}
                 >
-                  {/* ===== Drag handle ===== */}
-                  <div className="w-5 flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-gray-200 hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <GripVertical className="h-4 w-4" />
+                  {/* ===== Step number (doubles as drag handle) ===== */}
+                  <div className="w-6 flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing" title="Drag to reorder">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-orange-400 text-white text-[10px] font-bold shadow-sm hover:bg-orange-500 transition-colors">
+                      {idx + 1}
+                    </span>
                   </div>
 
                   {/* ===== Checkbox (selection mode only) ===== */}

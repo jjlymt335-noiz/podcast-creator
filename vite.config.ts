@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => {
         },
         // AudioX T2S GPU 服务
         '/audiox': {
-          target: env.VITE_AUDIOX_SERVER_URL || 'http://localhost:8001',
+          target: env.VITE_AUDIOX_SERVER_URL || 'http://localhost:8000',
           changeOrigin: true,
         },
       },

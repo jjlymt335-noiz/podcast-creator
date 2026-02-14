@@ -1,7 +1,8 @@
 // AudioX T2S API — 音效生成
+// 两步流程: POST /generate → 获取 task_id → GET /download/{task_id} → 获取音频
 import axios from 'axios';
 
-const AUDIOX_TIMEOUT = 120000; // 2 minutes (GPU generation is slow)
+const AUDIOX_TIMEOUT = 300000; // 5 minutes (diffusion generation can be slow)
 
 export const audioXClient = axios.create({
   timeout: AUDIOX_TIMEOUT,
@@ -30,24 +31,57 @@ audioXClient.interceptors.response.use(
   }
 );
 
+interface AudioXGenerateResponse {
+  task_id: string;
+  status: string;
+  message: string;
+  audio_url: string | null;
+  duration: number | null;
+  generation_time: number | null;
+}
+
 /**
  * Generate sound effect via AudioX T2S.
+ * Two-step: POST /generate → GET /download/{task_id}
  * Returns a WAV audio Blob.
  */
 export async function generateSoundEffect(params: {
   text: string;
   duration: number;
 }): Promise<Blob> {
-  const response = await audioXClient.post('/audiox/generate', params, {
+  // Step 1: 请求生成
+  const genResponse = await audioXClient.post('/audiox/generate', {
+    task: 'T2A',
+    prompt: params.text,
+    duration: Math.min(params.duration, 10), // API 上限 10s
+  }) as unknown as AudioXGenerateResponse;
+
+  if (genResponse.status !== 'completed' || !genResponse.audio_url) {
+    throw new Error(genResponse.message || 'Audio generation failed');
+  }
+
+  // Step 2: 下载音频文件
+  const audioResponse = await audioXClient.get(`/audiox${genResponse.audio_url}`, {
     responseType: 'blob',
   });
-  return response as unknown as Blob;
+
+  return audioResponse as unknown as Blob;
 }
 
 /**
  * Check AudioX server health.
  */
-export async function checkAudioXHealth(): Promise<{ status: string; model_loaded: boolean }> {
+export async function checkAudioXHealth(): Promise<{
+  status: string;
+  model_loaded: boolean;
+  model_name: string;
+  device: string | null;
+}> {
   const response = await audioXClient.get('/audiox/health');
-  return response as unknown as { status: string; model_loaded: boolean };
+  return response as unknown as {
+    status: string;
+    model_loaded: boolean;
+    model_name: string;
+    device: string | null;
+  };
 }

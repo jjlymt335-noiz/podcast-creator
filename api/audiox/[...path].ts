@@ -28,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const pathSegments = req.query.path;
   const path = Array.isArray(pathSegments) ? pathSegments.join('/') : pathSegments || '';
 
-  const audioXServerUrl = process.env.AUDIOX_SERVER_URL || 'http://localhost:8001';
+  const audioXServerUrl = process.env.AUDIOX_SERVER_URL || 'http://localhost:8000';
   const targetUrl = `${audioXServerUrl}/${path}`;
 
   const headers: Record<string, string> = {};
