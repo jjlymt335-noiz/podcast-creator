@@ -92,6 +92,7 @@ export function TextEditor() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   // Zone ordering: tracks item order (gap + SFX) within transition zones between speeches
   const [zoneOrders, setZoneOrders] = useState<Record<string, string[]>>({});
+  const [expandedSfx, setExpandedSfx] = useState<Record<string, boolean>>({});
   const [newLineSegmentId, setNewLineSegmentId] = useState<string | null>(null);
 
   // Auto-initialize: when segments are empty, create a default speaker + first segment
@@ -688,71 +689,98 @@ export function TextEditor() {
                           // SFX item
                           const sfxSeg = sfxSegments.find(s => s.id === itemId);
                           if (!sfxSeg) return null;
+                          const sfxExpanded = expandedSfx[sfxSeg.id] || false;
                           return (
-                            <div key={itemId} className="flex items-start gap-2">
-                              <div className="flex-1 border-l-4 border-amber-400 bg-amber-50/80 rounded-lg">
-                                <div className="p-3">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-7 w-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                        <Music className="h-3.5 w-3.5 text-amber-600" />
-                                      </div>
-                                      <span className="text-sm font-medium text-amber-700">Sound Effect</span>
-                                      <select
-                                        value={sfxSeg.sfx_duration || 5}
-                                        onChange={(e) => updateSfxSegment(sfxSeg.id, { sfx_duration: Number(e.target.value) })}
-                                        className="text-xs border border-amber-200 rounded px-2 py-0.5 bg-white text-amber-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                            <div key={itemId}>
+                              <div className="flex items-center gap-2">
+                                {/* 收起态：小标签，和 gap 一样的 pill */}
+                                <button
+                                  onClick={() => setExpandedSfx(prev => ({ ...prev, [sfxSeg.id]: !sfxExpanded }))}
+                                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-full border transition-all shadow-sm ${
+                                    sfxSeg.text.trim()
+                                      ? 'border-amber-300 bg-amber-50 text-amber-600 hover:border-amber-400 hover:bg-amber-100'
+                                      : 'border-amber-200 bg-white text-amber-400 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50'
+                                  }`}
+                                  title={sfxExpanded ? 'Collapse' : 'Expand to edit sound effect'}
+                                >
+                                  <Music className="h-3 w-3" />
+                                  <span>{sfxSeg.text.trim() ? sfxSeg.text.trim().slice(0, 20) + (sfxSeg.text.trim().length > 20 ? '...' : '') : 'Sound Effect'}</span>
+                                  <span className="text-[10px] opacity-70">{sfxSeg.sfx_duration || 5}s</span>
+                                </button>
+                                {/* 箭头 */}
+                                {!(isFirst && isLast) && (
+                                  <>
+                                    {!isLast && (
+                                      <button
+                                        onClick={() => moveZoneItem(segment.id, itemId, 'down')}
+                                        className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
+                                        title="Move down"
                                       >
-                                        {[1, 3, 5, 8, 10].map((d) => (
-                                          <option key={d} value={d}>{d}s</option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-amber-600 hover:bg-amber-100" onClick={() => handleGenerateSfx(sfxSeg.id)} disabled={loadingSegmentId === sfxSeg.id || !sfxSeg.text.trim()} title="Generate sound">
-                                        {loadingSegmentId === sfxSeg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Volume2 className="h-3.5 w-3.5 mr-1" />}
-                                        Generate
-                                      </Button>
-                                      {sfxAudioBlobs[sfxSeg.id] && (
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600 hover:bg-amber-100" onClick={() => handlePreviewSfx(sfxSeg.id)} title={playingSegmentId === sfxSeg.id ? 'Stop' : 'Preview'}>
-                                          {playingSegmentId === sfxSeg.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                                        </Button>
-                                      )}
-                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={() => removeSfxSegment(sfxSeg.id)} title="Remove sound effect">
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  <textarea
-                                    value={sfxSeg.text}
-                                    onChange={(e) => updateSfxSegment(sfxSeg.id, { text: e.target.value })}
-                                    className="w-full bg-white border border-amber-200 rounded px-3 py-2 text-sm text-gray-900 resize-none focus:outline-none focus:ring-1 focus:ring-amber-400"
-                                    rows={2}
-                                    placeholder='Describe the sound (e.g., "coffee shop ambience", "thunder and rain")'
-                                  />
-                                </div>
+                                        <ChevronDown className="h-4 w-4" />
+                                      </button>
+                                    )}
+                                    {!isFirst && isLast && (
+                                      <button
+                                        onClick={() => moveZoneItem(segment.id, itemId, 'up')}
+                                        className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
+                                        title="Move up"
+                                      >
+                                        <ChevronUp className="h-4 w-4" />
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                                {/* 快捷操作 */}
+                                {sfxAudioBlobs[sfxSeg.id] && !sfxExpanded && (
+                                  <button
+                                    onClick={() => handlePreviewSfx(sfxSeg.id)}
+                                    className="p-0.5 text-amber-500 hover:text-amber-700 transition-colors"
+                                    title={playingSegmentId === sfxSeg.id ? 'Stop' : 'Preview'}
+                                  >
+                                    {playingSegmentId === sfxSeg.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                                  </button>
+                                )}
                               </div>
-                              {/* 2+项时才显示箭头：上面→↓，下面→↑ */}
-                              {!(isFirst && isLast) && (
-                                <div className="flex items-center pt-4">
-                                  {!isLast && (
-                                    <button
-                                      onClick={() => moveZoneItem(segment.id, itemId, 'down')}
-                                      className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
-                                      title="Move down"
-                                    >
-                                      <ChevronDown className="h-4 w-4" />
-                                    </button>
-                                  )}
-                                  {!isFirst && isLast && (
-                                    <button
-                                      onClick={() => moveZoneItem(segment.id, itemId, 'up')}
-                                      className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
-                                      title="Move up"
-                                    >
-                                      <ChevronUp className="h-4 w-4" />
-                                    </button>
-                                  )}
+                              {/* 展开态 */}
+                              {sfxExpanded && (
+                                <div className="mt-2 border-l-4 border-amber-400 bg-amber-50/80 rounded-lg">
+                                  <div className="p-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-amber-600 font-medium">Duration</span>
+                                        <select
+                                          value={sfxSeg.sfx_duration || 5}
+                                          onChange={(e) => updateSfxSegment(sfxSeg.id, { sfx_duration: Number(e.target.value) })}
+                                          className="text-xs border border-amber-200 rounded px-2 py-0.5 bg-white text-amber-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                        >
+                                          {[1, 3, 5, 8, 10].map((d) => (
+                                            <option key={d} value={d}>{d}s</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-amber-600 hover:bg-amber-100" onClick={() => handleGenerateSfx(sfxSeg.id)} disabled={loadingSegmentId === sfxSeg.id || !sfxSeg.text.trim()} title="Generate sound">
+                                          {loadingSegmentId === sfxSeg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Volume2 className="h-3.5 w-3.5 mr-1" />}
+                                          Generate
+                                        </Button>
+                                        {sfxAudioBlobs[sfxSeg.id] && (
+                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600 hover:bg-amber-100" onClick={() => handlePreviewSfx(sfxSeg.id)} title={playingSegmentId === sfxSeg.id ? 'Stop' : 'Preview'}>
+                                            {playingSegmentId === sfxSeg.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                                          </Button>
+                                        )}
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={() => removeSfxSegment(sfxSeg.id)} title="Remove sound effect">
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                    <textarea
+                                      value={sfxSeg.text}
+                                      onChange={(e) => updateSfxSegment(sfxSeg.id, { text: e.target.value })}
+                                      className="w-full bg-white border border-amber-200 rounded px-3 py-2 text-sm text-gray-900 resize-none focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                      rows={2}
+                                      placeholder='Describe the sound (e.g., "coffee shop ambience", "thunder and rain")'
+                                    />
+                                  </div>
                                 </div>
                               )}
                             </div>
