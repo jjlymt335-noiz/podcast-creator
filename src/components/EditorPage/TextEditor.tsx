@@ -579,14 +579,16 @@ export function TextEditor() {
                     <div className="py-2 pl-5">
                       <div className="border-t border-dashed border-gray-200 mb-2" />
                       {/* 引导文案 — 完整描述当前播放顺序 */}
-                      <p className="mb-2 text-[11px] text-gray-400">
-                        {(() => {
-                          const labels = zoneItems.map(id => id === 'gap' ? `silence (${gapValue}s)` : 'sound effect');
-                          if (labels.length === 1) return `Plays ${labels[0]} between the two lines above and below.`;
-                          return `Plays ${labels.map((l, i) => `${i + 1}. ${l}`).join(', then ')} between the two lines.`;
-                        })()}
-                        {' '}Use arrows to reorder.
-                      </p>
+                      <div className="mb-2 text-[11px] text-gray-400 space-y-0.5">
+                        <p>
+                          {(() => {
+                            const labels = zoneItems.map(id => id === 'gap' ? `silence (${gapValue}s)` : 'sound effect');
+                            if (labels.length === 1) return `Plays ${labels[0]} between the two lines above and below.`;
+                            return `Plays ${labels.map((l, i) => `${i + 1}. ${l}`).join(', then ')} between the two lines.`;
+                          })()}
+                        </p>
+                        <p className="text-gray-300">Use arrows to reorder.</p>
+                      </div>
                       <div className="flex flex-col gap-2 max-w-2xl">
                         {zoneItems.map((itemId, zoneIdx) => {
                           const isFirst = zoneIdx === 0;
