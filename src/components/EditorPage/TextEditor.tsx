@@ -578,12 +578,15 @@ export function TextEditor() {
                   {hasPrevSpeech && (
                     <div className="py-2 pl-5">
                       <div className="border-t border-dashed border-gray-200 mb-2" />
-                      {/* 引导文案 */}
-                      <div className="flex items-center gap-2 mb-2 text-[10px] text-gray-400 tracking-wide uppercase">
-                        <span>Transition</span>
-                        <span className="flex-1 border-t border-dotted border-gray-200" />
-                        <span className="normal-case tracking-normal">top plays first</span>
-                      </div>
+                      {/* 引导文案 — 完整描述当前播放顺序 */}
+                      <p className="mb-2 text-[11px] text-gray-400">
+                        {(() => {
+                          const labels = zoneItems.map(id => id === 'gap' ? `silence (${gapValue}s)` : 'sound effect');
+                          if (labels.length === 1) return `Plays ${labels[0]} between the two lines above and below.`;
+                          return `Plays ${labels.map((l, i) => `${i + 1}. ${l}`).join(', then ')} between the two lines.`;
+                        })()}
+                        {' '}Use arrows to reorder.
+                      </p>
                       <div className="flex flex-col gap-2 max-w-2xl">
                         {zoneItems.map((itemId, zoneIdx) => {
                           const isFirst = zoneIdx === 0;
@@ -641,31 +644,22 @@ export function TextEditor() {
                                     </div>
                                   </PopoverContent>
                                 </Popover>
-                                {isFirst && !isLast && (
-                                  <button
-                                    onClick={() => moveZoneItem(segment.id, 'gap', 'down')}
-                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
-                                    title="Move down"
-                                  >
-                                    <ChevronDown className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                                {isLast && !isFirst && (
+                                {/* 在项目右边：上面的项目显示↓，下面的显示↑，唯一项显示↓ */}
+                                {isLast && !isFirst ? (
                                   <button
                                     onClick={() => moveZoneItem(segment.id, 'gap', 'up')}
-                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
+                                    className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
                                     title="Move up"
                                   >
-                                    <ChevronUp className="h-3.5 w-3.5" />
+                                    <ChevronUp className="h-4 w-4" />
                                   </button>
-                                )}
-                                {isFirst && isLast && (
+                                ) : (
                                   <button
                                     onClick={() => moveZoneItem(segment.id, 'gap', 'down')}
-                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
+                                    className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
                                     title="Move down"
                                   >
-                                    <ChevronDown className="h-3.5 w-3.5" />
+                                    <ChevronDown className="h-4 w-4" />
                                   </button>
                                 )}
                               </div>
@@ -719,29 +713,20 @@ export function TextEditor() {
                                   />
                                 </div>
                               </div>
-                              <div className="flex flex-col items-center justify-center pt-5">
-                                {isFirst && !isLast && (
-                                  <button
-                                    onClick={() => moveZoneItem(segment.id, itemId, 'down')}
-                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
-                                    title="Move down"
-                                  >
-                                    <ChevronDown className="h-4 w-4" />
-                                  </button>
-                                )}
-                                {isLast && !isFirst && (
+                              {/* 在项目右边：上面的项目显示↓，下面的显示↑，唯一项显示↑ */}
+                              <div className="flex items-center pt-4">
+                                {isLast && !isFirst ? (
                                   <button
                                     onClick={() => moveZoneItem(segment.id, itemId, 'up')}
-                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
+                                    className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
                                     title="Move up"
                                   >
                                     <ChevronUp className="h-4 w-4" />
                                   </button>
-                                )}
-                                {isFirst && isLast && (
+                                ) : (
                                   <button
                                     onClick={() => moveZoneItem(segment.id, itemId, 'down')}
-                                    className="p-0.5 leading-none transition-colors text-gray-400 hover:text-orange-500"
+                                    className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
                                     title="Move down"
                                   >
                                     <ChevronDown className="h-4 w-4" />
@@ -752,7 +737,7 @@ export function TextEditor() {
                           );
                         })}
                         {/* Add SFX button */}
-                        <div>
+                        <div className="mt-1">
                           <button
                             onClick={() => {
                               const prevId = idx > 0 ? currentProject.segments[idx - 1].id : null;
