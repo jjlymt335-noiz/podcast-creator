@@ -15,6 +15,7 @@ import {
   Music,
   Volume2,
   GripVertical,
+  ArrowUpDown,
 } from 'lucide-react';
 import { useProjectStore, useUIStore } from '@/store';
 import * as api from '@/lib/api';
@@ -88,6 +89,8 @@ export function TextEditor() {
   const [focusSegmentId, setFocusSegmentId] = useState<string | null>(null);
   const [dragFromIndex, setDragFromIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  // gap 排序：记录哪些 speech segment 的 gap 应在 SFX 之后播放
+  const [gapAfterSfx, setGapAfterSfx] = useState<Record<string, boolean>>({});
   const [newLineSegmentId, setNewLineSegmentId] = useState<string | null>(null);
 
   // Auto-initialize: when segments are empty, create a default speaker + first segment
@@ -452,9 +455,11 @@ export function TextEditor() {
       await generateSfxAudio(segmentId);
       showToast('Sound effect generated!', 'success');
     } catch (error: any) {
-      const msg = error?.message?.includes('Cannot connect')
-        ? 'AudioX server is not reachable. Check your server configuration.'
-        : error?.message || 'SFX generation failed';
+      const errMsg = String(error?.message || error || '');
+      const isNetwork = errMsg.includes('connect') || errMsg.includes('Network') || errMsg.includes('502') || errMsg.includes('unavailable');
+      const msg = isNetwork
+        ? 'AudioX 服务未连接，请先启动 api_server.py（需要 GPU 环境）'
+        : `音效生成失败: ${errMsg}`;
       showToast(msg, 'error');
     } finally {
       setLoadingSegmentId(null);
@@ -527,90 +532,123 @@ export function TextEditor() {
                 <React.Fragment key={segment.id}>
 
                   {/* ===== 段间过渡区域（上下排列 = 播放顺序）===== */}
+                  {(() => {
+                    if (!hasPrevSegment) return null;
 
-                  {/* Gap control: 前一段是 speech 时显示（即使下一段是 SFX 也显示） */}
-                  {hasPrevSegment && prevSegType === 'speech' && (
-                    <div className="flex flex-col items-center py-1.5 gap-1">
-                      {/* 停顿控制 */}
-                      <Popover
-                        open={gapPopoverOpen === gapSegmentId}
-                        onOpenChange={(open) => setGapPopoverOpen(open ? gapSegmentId : null)}
-                      >
-                        <PopoverTrigger asChild>
-                          <button
-                            className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-gray-200 bg-white text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 transition-all shadow-sm"
-                            title={`Speaker gap: ${gapValue}s (click to change)`}
-                          >
-                            <span className="font-mono font-bold">||</span>
-                            <span>gap {gapValue}s</span>
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-3" align="center">
-                          <div className="text-xs font-medium text-gray-700 mb-2">
-                            Gap between segments
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {[0.3, 0.6, 1.2].map((g) => (
-                              <Button
-                                key={g}
-                                variant={gapValue === g ? 'default' : 'outline'}
-                                size="sm"
-                                className="text-xs px-3"
-                                onClick={() => handleSetSpeakerGap(gapSegmentId, g)}
-                              >
-                                {g}s
-                              </Button>
-                            ))}
-                            <span className="text-xs text-gray-500">custom:</span>
-                            <Input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              max="10"
-                              value={customGapInput}
-                              onChange={(e) => setCustomGapInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  const val = parseFloat(customGapInput);
-                                  if (!isNaN(val) && val >= 0 && val <= 10) {
-                                    handleSetSpeakerGap(gapSegmentId, val);
-                                  }
-                                }
-                              }}
-                              className="h-8 w-16 text-xs"
-                              placeholder="s"
-                            />
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                    const isGapAfter = !!gapAfterSfx[gapSegmentId];
+                    const hasSfxNearby = segType === 'sfx' || prevSegType === 'sfx';
 
-                      {/* Add SFX: 仅当两个 speech 直接相邻（中间无 SFX）时显示 */}
-                      {segType === 'speech' && (
-                        <button
-                          onClick={() => insertSfxSegment(prevSegment!.id)}
-                          className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-amber-200 bg-white text-amber-500 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all shadow-sm"
-                          title="Insert sound effect"
+                    // 渲染 gap 控件（带可选的排序切换按钮）
+                    const gapControl = (showSwap: boolean, swapToAfter: boolean) => (
+                      <div className="flex items-center gap-1">
+                        <Popover
+                          open={gapPopoverOpen === gapSegmentId}
+                          onOpenChange={(open) => setGapPopoverOpen(open ? gapSegmentId : null)}
                         >
-                          <Music className="h-3 w-3" />
-                          <span>Add SFX</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
+                          <PopoverTrigger asChild>
+                            <button
+                              className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-gray-200 bg-white text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 transition-all shadow-sm"
+                              title={`Speaker gap: ${gapValue}s (click to change)`}
+                            >
+                              <span className="font-mono font-bold">||</span>
+                              <span>gap {gapValue}s</span>
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-3" align="center">
+                            <div className="text-xs font-medium text-gray-700 mb-2">Gap between segments</div>
+                            <div className="flex items-center gap-2">
+                              {[0.3, 0.6, 1.2].map((g) => (
+                                <Button
+                                  key={g}
+                                  variant={gapValue === g ? 'default' : 'outline'}
+                                  size="sm"
+                                  className="text-xs px-3"
+                                  onClick={() => handleSetSpeakerGap(gapSegmentId, g)}
+                                >
+                                  {g}s
+                                </Button>
+                              ))}
+                              <span className="text-xs text-gray-500">custom:</span>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                max="10"
+                                value={customGapInput}
+                                onChange={(e) => setCustomGapInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    const val = parseFloat(customGapInput);
+                                    if (!isNaN(val) && val >= 0 && val <= 10) {
+                                      handleSetSpeakerGap(gapSegmentId, val);
+                                    }
+                                  }
+                                }}
+                                className="h-8 w-16 text-xs"
+                                placeholder="s"
+                              />
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                        {showSwap && (
+                          <button
+                            onClick={() => setGapAfterSfx(prev => ({ ...prev, [gapSegmentId]: swapToAfter }))}
+                            className="p-0.5 text-gray-300 hover:text-orange-500 transition-colors"
+                            title={swapToAfter ? '将停顿移到音效之后' : '将停顿移到音效之前'}
+                          >
+                            <ArrowUpDown className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
 
-                  {/* Add SFX: 在最后一个 SFX 和下一个 speech 之间显示 */}
-                  {hasPrevSegment && prevSegType === 'sfx' && segType === 'speech' && (
-                    <div className="flex items-center justify-center py-1.5">
+                    const addSfxBtn = (afterId: string) => (
                       <button
-                        onClick={() => insertSfxSegment(prevSegment!.id)}
+                        onClick={() => insertSfxSegment(afterId)}
                         className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-amber-200 bg-white text-amber-500 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all shadow-sm"
                         title="Insert sound effect"
                       >
                         <Music className="h-3 w-3" />
                         <span>Add SFX</span>
                       </button>
-                    </div>
-                  )}
+                    );
+
+                    // Case 1: speech → speech（中间无 SFX）
+                    if (prevSegType === 'speech' && segType === 'speech') {
+                      return (
+                        <div className="flex flex-col items-center py-1.5 gap-1">
+                          {gapControl(false, false)}
+                          {addSfxBtn(prevSegment!.id)}
+                        </div>
+                      );
+                    }
+
+                    // Case 2: speech → SFX（过渡区开始）
+                    if (prevSegType === 'speech' && segType === 'sfx') {
+                      if (!isGapAfter) {
+                        // gap 在前（默认）：这里显示 gap
+                        return (
+                          <div className="flex flex-col items-center py-1.5 gap-1">
+                            {gapControl(true, true)}
+                          </div>
+                        );
+                      }
+                      return null; // gap 在后，这里不显示
+                    }
+
+                    // Case 3: SFX → speech（过渡区结束）
+                    if (prevSegType === 'sfx' && segType === 'speech') {
+                      return (
+                        <div className="flex flex-col items-center py-1.5 gap-1">
+                          {isGapAfter && gapControl(true, false)}
+                          {addSfxBtn(prevSegment!.id)}
+                        </div>
+                      );
+                    }
+
+                    // Case 4: SFX → SFX（过渡区中间，不显示额外控件）
+                    return null;
+                  })()}
 
                   {/* ===== SFX Segment 渲染 ===== */}
                   {segType === 'sfx' ? (
