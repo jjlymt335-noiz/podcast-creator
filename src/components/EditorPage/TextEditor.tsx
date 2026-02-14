@@ -16,6 +16,7 @@ import {
   Music,
   Volume2,
   GripVertical,
+  Settings,
 } from 'lucide-react';
 import { useProjectStore, useUIStore } from '@/store';
 import * as api from '@/lib/api';
@@ -789,13 +790,14 @@ export function TextEditor() {
                       </span>
                       <span className="flex items-center gap-1 px-3 py-1 text-xs rounded-full border border-amber-200 bg-white text-amber-500 shadow-sm">
                         <Music className="h-3 w-3" />
-                        <span>{firstSfx?.text.trim() ? firstSfx.text.trim().slice(0, 12) + (firstSfx.text.trim().length > 12 ? '...' : '') : 'Sound Effect'}</span>
+                        <span>{firstSfx?.text.trim() ? firstSfx.text.trim().slice(0, 12) + (firstSfx.text.trim().length > 12 ? '...' : '') : 'Click to Add Sound Effect'}</span>
                         <span className="text-[10px] opacity-70">{firstSfx?.sfx_duration || 5}s</span>
                       </span>
                       <button
                         onClick={() => setExpandedZones(prev => ({ ...prev, [segment.id]: true }))}
-                        className="text-xs text-gray-400 hover:text-orange-500 transition-colors whitespace-nowrap"
+                        className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full border border-orange-300 bg-gradient-to-r from-orange-50 to-amber-50 text-orange-600 hover:from-orange-100 hover:to-amber-100 hover:border-orange-400 hover:shadow-sm transition-all whitespace-nowrap cursor-pointer"
                       >
+                        <Settings className="h-3 w-3" />
                         个性化停顿与音效
                       </button>
                       <div className="flex-1 border-t border-dashed border-gray-200" />
