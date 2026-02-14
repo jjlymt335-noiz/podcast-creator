@@ -119,6 +119,20 @@ export function TextEditor() {
     }
   }, [currentProject?.id]); // only run when project changes
 
+  // Auto-insert SFX between adjacent speech segments so transition zone always has gap + SFX
+  useEffect(() => {
+    if (!currentProject) return;
+    const segs = currentProject.segments;
+    for (let i = 1; i < segs.length; i++) {
+      const prev = segs[i - 1];
+      const curr = segs[i];
+      if ((prev.type || 'speech') === 'speech' && (curr.type || 'speech') === 'speech') {
+        insertSfxSegment(prev.id);
+        return; // one at a time
+      }
+    }
+  }, [currentProject?.segments]);
+
   const speakerIndex = (speakerId: string) =>
     currentProject?.speakers.findIndex((s) => s.speaker_id === speakerId) ?? 0;
   const speakerColor = (speakerId: string) =>
@@ -587,7 +601,9 @@ export function TextEditor() {
                             return `Plays ${labels.map((l, i) => `${i + 1}. ${l}`).join(', then ')} between the two lines.`;
                           })()}
                         </p>
-                        <p className="text-gray-300">Use arrows to reorder.</p>
+                        {zoneItems.length > 1 && (
+                          <p className="text-gray-300">Use arrows to reorder.</p>
+                        )}
                       </div>
                       <div className="flex flex-col gap-2 max-w-2xl">
                         {zoneItems.map((itemId, zoneIdx) => {
@@ -646,22 +662,23 @@ export function TextEditor() {
                                     </div>
                                   </PopoverContent>
                                 </Popover>
-                                {/* 在项目右边：上面的项目显示↓，下面的显示↑，唯一项显示↓ */}
-                                {isLast && !isFirst ? (
-                                  <button
-                                    onClick={() => moveZoneItem(segment.id, 'gap', 'up')}
-                                    className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
-                                    title="Move up"
-                                  >
-                                    <ChevronUp className="h-4 w-4" />
-                                  </button>
-                                ) : (
+                                {/* 2+项时才显示箭头：上面→↓，下面→↑ */}
+                                {!isLast && (
                                   <button
                                     onClick={() => moveZoneItem(segment.id, 'gap', 'down')}
                                     className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
                                     title="Move down"
                                   >
                                     <ChevronDown className="h-4 w-4" />
+                                  </button>
+                                )}
+                                {!isFirst && isLast && (
+                                  <button
+                                    onClick={() => moveZoneItem(segment.id, 'gap', 'up')}
+                                    className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
+                                    title="Move up"
+                                  >
+                                    <ChevronUp className="h-4 w-4" />
                                   </button>
                                 )}
                               </div>
@@ -715,43 +732,33 @@ export function TextEditor() {
                                   />
                                 </div>
                               </div>
-                              {/* 在项目右边：上面的项目显示↓，下面的显示↑，唯一项显示↑ */}
-                              <div className="flex items-center pt-4">
-                                {isLast && !isFirst ? (
-                                  <button
-                                    onClick={() => moveZoneItem(segment.id, itemId, 'up')}
-                                    className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
-                                    title="Move up"
-                                  >
-                                    <ChevronUp className="h-4 w-4" />
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => moveZoneItem(segment.id, itemId, 'down')}
-                                    className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
-                                    title="Move down"
-                                  >
-                                    <ChevronDown className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </div>
+                              {/* 2+项时才显示箭头：上面→↓，下面→↑ */}
+                              {!(isFirst && isLast) && (
+                                <div className="flex items-center pt-4">
+                                  {!isLast && (
+                                    <button
+                                      onClick={() => moveZoneItem(segment.id, itemId, 'down')}
+                                      className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
+                                      title="Move down"
+                                    >
+                                      <ChevronDown className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  {!isFirst && isLast && (
+                                    <button
+                                      onClick={() => moveZoneItem(segment.id, itemId, 'up')}
+                                      className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
+                                      title="Move up"
+                                    >
+                                      <ChevronUp className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
-                        {/* Add SFX button */}
-                        <div className="mt-1">
-                          <button
-                            onClick={() => {
-                              const prevId = idx > 0 ? currentProject.segments[idx - 1].id : null;
-                              insertSfxSegment(prevId);
-                            }}
-                            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-full border border-dashed border-amber-300 bg-white text-amber-500 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all"
-                            title="Insert sound effect between segments"
-                          >
-                            <Music className="h-3 w-3" />
-                            <span>Add Sound Effect</span>
-                          </button>
-                        </div>
+                        {/* SFX is auto-inserted, no manual add button needed */}
                       </div>
                       <div className="border-t border-dashed border-gray-200 mt-2" />
                     </div>
