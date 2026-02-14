@@ -7,6 +7,7 @@ import {
   Sparkles,
   Loader2,
   ChevronUp,
+  ChevronDown,
   Undo,
   Redo,
   Smile,
@@ -91,11 +92,6 @@ export function TextEditor() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   // Zone ordering: tracks item order (gap + SFX) within transition zones between speeches
   const [zoneOrders, setZoneOrders] = useState<Record<string, string[]>>({});
-  const [zoneDragState, setZoneDragState] = useState<{
-    zoneId: string;
-    dragItemId: string;
-    overItemId: string | null;
-  } | null>(null);
   const [newLineSegmentId, setNewLineSegmentId] = useState<string | null>(null);
 
   // Auto-initialize: when segments are empty, create a default speaker + first segment
@@ -504,7 +500,7 @@ export function TextEditor() {
     setDragOverIndex(null);
   };
 
-  // ── Zone drag & drop (transition zone items: gap + SFX) ──
+  // ── Zone item ordering (gap + SFX between speeches) ──
 
   const getZoneItems = (speechId: string, sfxSegments: { id: string }[]): string[] => {
     const sfxIds = sfxSegments.map(s => s.id);
@@ -522,56 +518,27 @@ export function TextEditor() {
     return ['gap', ...sfxIds];
   };
 
-  const handleZoneDragStart = (e: React.DragEvent, zoneId: string, itemId: string) => {
-    e.stopPropagation();
-    setZoneDragState({ zoneId, dragItemId: itemId, overItemId: null });
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('application/zone-item', itemId);
-  };
-
-  const handleZoneDragOver = (e: React.DragEvent, zoneId: string, itemId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (zoneDragState?.zoneId === zoneId && zoneDragState.dragItemId !== itemId) {
-      setZoneDragState(prev => prev ? { ...prev, overItemId: itemId } : null);
-    }
-  };
-
-  const handleZoneDrop = (e: React.DragEvent, zoneId: string, targetItemId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!zoneDragState || zoneDragState.zoneId !== zoneId) return;
-    const { dragItemId } = zoneDragState;
-    if (dragItemId === targetItemId) { setZoneDragState(null); return; }
-
-    const speechIdx = currentProject!.segments.findIndex(s => s.id === zoneId);
-    if (speechIdx === -1) { setZoneDragState(null); return; }
+  const moveZoneItem = (speechId: string, itemId: string, direction: 'up' | 'down') => {
+    const speechIdx = currentProject!.segments.findIndex(s => s.id === speechId);
+    if (speechIdx === -1) return;
     const sfxSegs: { id: string }[] = [];
     for (let i = speechIdx - 1; i >= 0; i--) {
       if ((currentProject!.segments[i].type || 'speech') === 'sfx') {
         sfxSegs.unshift(currentProject!.segments[i]);
       } else break;
     }
-
-    const currentOrder = getZoneItems(zoneId, sfxSegs);
-    const fromIdx = currentOrder.indexOf(dragItemId);
-    const toIdx = currentOrder.indexOf(targetItemId);
-    if (fromIdx === -1 || toIdx === -1) { setZoneDragState(null); return; }
-
-    const newOrder = [...currentOrder];
-    newOrder.splice(fromIdx, 1);
-    newOrder.splice(toIdx, 0, dragItemId);
-
-    setZoneOrders(prev => ({ ...prev, [zoneId]: newOrder }));
-    const newSfxOrder = newOrder.filter(id => id !== 'gap');
+    const items = getZoneItems(speechId, sfxSegs);
+    const idx = items.indexOf(itemId);
+    if (idx === -1) return;
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= items.length) return;
+    const newItems = [...items];
+    [newItems[idx], newItems[targetIdx]] = [newItems[targetIdx], newItems[idx]];
+    setZoneOrders(prev => ({ ...prev, [speechId]: newItems }));
+    const newSfxOrder = newItems.filter(id => id !== 'gap');
     if (newSfxOrder.length > 0) {
-      reorderZoneSfx(zoneId, newSfxOrder);
+      reorderZoneSfx(speechId, newSfxOrder);
     }
-    setZoneDragState(null);
-  };
-
-  const handleZoneDragEnd = () => {
-    setZoneDragState(null);
   };
 
   if (!currentProject) return null;
@@ -607,27 +574,27 @@ export function TextEditor() {
               return (
                 <React.Fragment key={segment.id}>
 
-                  {/* ===== 过渡区域：可拖拽的 gap + SFX 卡片 ===== */}
+                  {/* ===== 过渡区域：gap + SFX 卡片（用箭头按钮调整顺序）===== */}
                   {hasPrevSpeech && (
                     <div className="flex flex-col items-center py-1.5 gap-1">
-                      {zoneItems.map((itemId) => {
-                        const isDragging = zoneDragState?.zoneId === segment.id && zoneDragState?.dragItemId === itemId;
-                        const isDragOver = zoneDragState?.zoneId === segment.id && zoneDragState?.overItemId === itemId;
+                      {zoneItems.map((itemId, zoneIdx) => {
+                        const showArrows = zoneItems.length > 1;
+                        const canMoveUp = zoneIdx > 0;
+                        const canMoveDown = zoneIdx < zoneItems.length - 1;
 
                         if (itemId === 'gap') {
                           return (
-                            <div
-                              key="gap"
-                              draggable
-                              onDragStart={(e) => handleZoneDragStart(e, segment.id, 'gap')}
-                              onDragOver={(e) => handleZoneDragOver(e, segment.id, 'gap')}
-                              onDrop={(e) => handleZoneDrop(e, segment.id, 'gap')}
-                              onDragEnd={handleZoneDragEnd}
-                              className={`flex items-center gap-1 cursor-grab active:cursor-grabbing transition-all ${
-                                isDragging ? 'opacity-40' : ''
-                              } ${isDragOver ? 'ring-2 ring-orange-300 rounded-full ring-offset-1' : ''}`}
-                            >
-                              <GripVertical className="h-3 w-3 text-gray-300" />
+                            <div key="gap" className="flex items-center gap-1.5">
+                              {showArrows && (
+                                <button
+                                  onClick={() => moveZoneItem(segment.id, 'gap', 'up')}
+                                  disabled={!canMoveUp}
+                                  className={`p-0.5 rounded transition-colors ${canMoveUp ? 'text-gray-400 hover:text-orange-500 hover:bg-orange-50' : 'text-gray-200 cursor-default'}`}
+                                  title="Move up"
+                                >
+                                  <ChevronUp className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                               <Popover
                                 open={gapPopoverOpen === segment.id}
                                 onOpenChange={(open) => setGapPopoverOpen(open ? segment.id : null)}
@@ -677,6 +644,16 @@ export function TextEditor() {
                                   </div>
                                 </PopoverContent>
                               </Popover>
+                              {showArrows && (
+                                <button
+                                  onClick={() => moveZoneItem(segment.id, 'gap', 'down')}
+                                  disabled={!canMoveDown}
+                                  className={`p-0.5 rounded transition-colors ${canMoveDown ? 'text-gray-400 hover:text-orange-500 hover:bg-orange-50' : 'text-gray-200 cursor-default'}`}
+                                  title="Move down"
+                                >
+                                  <ChevronDown className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                             </div>
                           );
                         }
@@ -685,24 +662,31 @@ export function TextEditor() {
                         const sfxSeg = sfxSegments.find(s => s.id === itemId);
                         if (!sfxSeg) return null;
                         return (
-                          <div
-                            key={itemId}
-                            draggable
-                            onDragStart={(e) => handleZoneDragStart(e, segment.id, itemId)}
-                            onDragOver={(e) => handleZoneDragOver(e, segment.id, itemId)}
-                            onDrop={(e) => handleZoneDrop(e, segment.id, itemId)}
-                            onDragEnd={handleZoneDragEnd}
-                            className={`w-full max-w-2xl transition-all ${
-                              isDragging ? 'opacity-40' : ''
-                            } ${isDragOver ? 'ring-2 ring-amber-400 ring-offset-1 rounded-lg' : ''}`}
-                          >
+                          <div key={itemId} className="w-full max-w-2xl">
                             <div className="relative border-l-4 border-amber-400 bg-amber-50/80 rounded-lg">
                               <div className="p-3">
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-2">
-                                    <div className="cursor-grab active:cursor-grabbing text-amber-300 hover:text-amber-500 -ml-1">
-                                      <GripVertical className="h-4 w-4" />
-                                    </div>
+                                    {showArrows && (
+                                      <div className="flex flex-col -ml-1">
+                                        <button
+                                          onClick={() => moveZoneItem(segment.id, itemId, 'up')}
+                                          disabled={!canMoveUp}
+                                          className={`p-0 leading-none transition-colors ${canMoveUp ? 'text-amber-400 hover:text-amber-600' : 'text-gray-200 cursor-default'}`}
+                                          title="Move up"
+                                        >
+                                          <ChevronUp className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                          onClick={() => moveZoneItem(segment.id, itemId, 'down')}
+                                          disabled={!canMoveDown}
+                                          className={`p-0 leading-none transition-colors ${canMoveDown ? 'text-amber-400 hover:text-amber-600' : 'text-gray-200 cursor-default'}`}
+                                          title="Move down"
+                                        >
+                                          <ChevronDown className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    )}
                                     <div className="h-7 w-7 rounded-full bg-amber-100 flex items-center justify-center">
                                       <Music className="h-3.5 w-3.5 text-amber-600" />
                                     </div>
