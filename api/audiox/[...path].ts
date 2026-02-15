@@ -41,6 +41,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     body = await readBody(req);
   }
 
+  console.log(`[audiox proxy] ${req.method} ${targetUrl} (path=${path}, env=${audioXServerUrl})`);
+
   try {
     const response = await fetch(targetUrl, {
       method: req.method || 'GET',
@@ -51,11 +53,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const contentType = response.headers.get('content-type') || 'application/json';
     res.setHeader('Content-Type', contentType);
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('X-AudioX-Target', targetUrl);
 
     const arrayBuf = await response.arrayBuffer();
     res.status(response.status).send(Buffer.from(arrayBuf));
-  } catch (error) {
+  } catch (error: any) {
     console.error('AudioX proxy error:', error);
-    res.status(502).json({ error: 'AudioX server unavailable' });
+    res.status(502).json({
+      error: 'AudioX server unavailable',
+      detail: error?.message,
+      targetUrl,
+      envVar: audioXServerUrl,
+    });
   }
 }
