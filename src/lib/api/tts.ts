@@ -1,4 +1,4 @@
-import { apiClient, internalClient } from './client';
+import { internalClient } from './client';
 import type {
   TTSRequest,
   TTSLongRequest,
@@ -33,12 +33,12 @@ function toFormData(params: Record<string, any>): FormData {
 
 // ============================================================
 // 1.1 短文本 TTS（≤150字符）
-// POST /v2/text-to-speech  (Form-Data → audio binary)
-// 开发者 API，API Key 认证
+// POST /api/v2/text-to-speech  (Form-Data → audio binary)
+// 内部 API，cookie 认证（通过 Vite Proxy / Vercel Serverless）
 // ============================================================
 export async function textToSpeech(params: TTSRequest): Promise<Blob> {
   const fd = toFormData(params);
-  const response = await apiClient.post<Blob>('/v2/text-to-speech', fd, {
+  const response = await internalClient.post<Blob>('/api/v2/text-to-speech', fd, {
     responseType: 'blob',
     headers: { 'Content-Type': 'multipart/form-data' },
   });
