@@ -41,7 +41,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     body = await readBody(req);
   }
 
-  console.log(`[audiox proxy] ${req.method} ${targetUrl} (path=${path}, env=${audioXServerUrl})`);
+  // Debug endpoint: /api/audiox/__debug returns env info
+  if (path === '__debug') {
+    return res.status(200).json({
+      audioXServerUrl,
+      envRaw: process.env.AUDIOX_SERVER_URL,
+      envLength: (process.env.AUDIOX_SERVER_URL || '').length,
+      path,
+      targetUrl,
+      charCodes: Array.from(audioXServerUrl).map(c => c.charCodeAt(0)),
+    });
+  }
 
   try {
     const response = await fetch(targetUrl, {
