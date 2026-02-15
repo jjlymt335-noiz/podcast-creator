@@ -475,11 +475,7 @@ export function TextEditor() {
     } catch (error: any) {
       console.error('SFX generation error:', error);
       const errMsg = String(error?.message || error?.detail || (typeof error === 'object' ? JSON.stringify(error) : error) || 'Unknown error');
-      const isNetwork = errMsg.includes('connect') || errMsg.includes('Network') || errMsg.includes('502') || errMsg.includes('unavailable');
-      const msg = isNetwork
-        ? 'AudioX 服务未连接，请确认服务地址可访问'
-        : `音效生成失败: ${errMsg}`;
-      showToast(msg, 'error');
+      showToast(`音效生成失败: ${errMsg}`, 'error');
     } finally {
       setLoadingSegmentId(null);
     }

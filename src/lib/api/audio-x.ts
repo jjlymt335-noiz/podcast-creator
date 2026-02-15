@@ -19,15 +19,17 @@ audioXClient.interceptors.response.use(
     return response.data;
   },
   (error) => {
+    const url = error.config?.url || 'unknown';
+    const origin = window?.location?.origin || '';
     if (error.response) {
-      console.error('AudioX API error:', error.response.status, error.response.data);
+      console.error(`[AudioX] API error: ${error.response.status} ${url} (origin: ${origin})`, error.response.data);
       const data = error.response.data;
       const msg = data?.message || data?.detail || (typeof data === 'string' ? data : `AudioX error ${error.response.status}`);
       return Promise.reject(new Error(msg));
     }
     if (error.request) {
-      console.error('AudioX network error');
-      return Promise.reject(new Error('Cannot connect to AudioX server'));
+      console.error(`[AudioX] Network error: ${url} (origin: ${origin})`, error.code, error.message);
+      return Promise.reject(new Error(`AudioX network error (${error.code || 'unknown'}): ${url}`));
     }
     return Promise.reject(error);
   }
