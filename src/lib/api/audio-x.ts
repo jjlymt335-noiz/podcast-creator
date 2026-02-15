@@ -52,11 +52,14 @@ export async function generateSoundEffect(params: {
   duration: number;
 }): Promise<Blob> {
   // Step 1: 请求生成
+  console.log('[AudioX] Generating SFX:', { text: params.text, duration: params.duration });
+  console.log('[AudioX] POST /audiox/generate');
   const genResponse = await audioXClient.post('/audiox/generate', {
     task: 'T2A',
     prompt: params.text,
     duration: Math.min(params.duration, 10), // API 上限 10s
   }) as unknown as AudioXGenerateResponse;
+  console.log('[AudioX] Generate response:', genResponse);
 
   if (genResponse.status !== 'completed' || !genResponse.audio_url) {
     throw new Error(genResponse.message || 'Audio generation failed');
