@@ -1,7 +1,8 @@
 {
   "rewrites": [
-    { "source": "/v2/:path*", "destination": "https://noiz.ai/v2/:path*" },
-    { "source": "/audiox/:path*", "destination": "http://34.64.86.14:8000/:path*" },
-    { "source": "/((?!api|v2|audiox).*)", "destination": "/index.html" }
+    { "source": "/api/v2/:path*", "destination": "/api/noiz-proxy?prefix=v2&apiPath=:path*" },
+    { "source": "/api/v1/:path*", "destination": "/api/noiz-proxy?prefix=v1&apiPath=:path*" },
+    { "source": "/api/audiox/:path*", "destination": "/api/noiz-proxy?prefix=audiox&apiPath=:path*" },
+    { "source": "/((?!api).*)", "destination": "/index.html" }
   ]
 }
