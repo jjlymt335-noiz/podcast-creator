@@ -471,6 +471,7 @@ export function TextEditor() {
     setLoadingSegmentId(segmentId);
     try {
       await generateSfxAudio(segmentId);
+      setExpandedSfx(prev => ({ ...prev, [segmentId]: false }));
       showToast('Sound effect generated!', 'success');
     } catch (error: any) {
       console.error('SFX generation error:', error);
