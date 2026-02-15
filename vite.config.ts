@@ -24,10 +24,11 @@ export default defineConfig(({ mode }) => {
             cookie: `access_token=${env.VITE_ACCESS_TOKEN || ''}`,
           },
         },
-        // AudioX T2S GPU 服务
+        // AudioX T2S GPU 服务（远程服务端点无 /audiox 前缀，需 rewrite）
         '/audiox': {
-          target: env.VITE_AUDIOX_SERVER_URL || 'http://localhost:8000',
+          target: env.VITE_AUDIOX_SERVER_URL || 'http://34.64.86.14:8000',
           changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/audiox/, ''),
         },
       },
     },
