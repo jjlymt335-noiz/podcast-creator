@@ -21,7 +21,9 @@ audioXClient.interceptors.response.use(
   (error) => {
     if (error.response) {
       console.error('AudioX API error:', error.response.status, error.response.data);
-      return Promise.reject(error.response.data || error);
+      const data = error.response.data;
+      const msg = data?.message || data?.detail || (typeof data === 'string' ? data : `AudioX error ${error.response.status}`);
+      return Promise.reject(new Error(msg));
     }
     if (error.request) {
       console.error('AudioX network error');
