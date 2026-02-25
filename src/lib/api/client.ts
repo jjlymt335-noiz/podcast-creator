@@ -1,7 +1,8 @@
 import axios, { type AxiosResponse, type AxiosError } from 'axios';
 
 // API配置
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+// 不使用 VITE_API_BASE_URL：所有请求走同源代理（Vite proxy / Vercel serverless），避免 CORS
+export const API_BASE_URL = '';
 export const API_KEY = import.meta.env.VITE_API_KEY || '';
 export const API_TIMEOUT = 30000; // 30秒
 
